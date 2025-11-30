@@ -1,0 +1,102 @@
+# version: '3.8'
+
+services:
+  db:
+    container_name: waywise-postgres-db
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: waywise_multivendor
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    container_name: waywise-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-commander:
+    container_name: waywise-redis-commander
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  app:
+    container_name: way-wise-multivendor-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL}
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_TTL: ${REDIS_TTL:-300}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TOKEN_AUDIENCE: ${JWT_TOKEN_AUDIENCE}
+      JWT_TOKEN_ISSUER: ${JWT_TOKEN_ISSUER}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL}
+      JWT_REFRESH_TOKEN_TTL: ${JWT_REFRESH_TOKEN_TTL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      LOG_LEVEL: ${LOG_LEVEL}
+      CACHE_TTL: ${CACHE_TTL}
+      CACHE_MAX_ITEMS: ${CACHE_MAX_ITEMS}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASSWORD}
+      EMAIL_FROM: ${SMTP_FROM_EMAIL}
+      CONTACT_EMAIL: ${CONTACT_EMAIL}
+      OTP_EXPIRY_MINUTES: ${OTP_EXPIRY_MINUTES}
+      OTP_LENGTH: ${OTP_LENGTH}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS}
+      OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS}
+      AWS_ENDPOINT: ${AWS_ENDPOINT}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE}
+      ALLOWED_IMAGE_TYPES: ${ALLOWED_IMAGE_TYPES}
+      MAX_IMAGES_PER_REVIEW: ${MAX_IMAGES_PER_REVIEW}
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

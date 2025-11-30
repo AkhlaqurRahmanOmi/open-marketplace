@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "_comment_exclude": "TEMPORARILY EXCLUDED - Remove feature modules after multi-vendor refactor is complete",
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "src/blog/**",
+    "src/bundles/**",
+    "src/cart/**",
+    "src/catalog/**",
+    "src/cms/**",
+    "src/coupons/**",
+    "src/inventory/**",
+    "src/notifications/**",
+    "src/orders/**",
+    "src/payments/**",
+    "src/reports/**",
+    "src/reviews/**",
+    "src/shipping/**",
+    "src/tasks/**",
+//    "src/modules/admin.module.ts",
+//    "src/modules/public.module.ts"
+  ]
+}

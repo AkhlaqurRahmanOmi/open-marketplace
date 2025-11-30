@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+
+    }
+  },
+  "_comment_exclude": "TEMPORARILY EXCLUDED - Remove after multi-vendor refactor is complete",
+  "exclude": [
+    "src/blog/**",
+    "src/bundles/**",
+    "src/cart/**",
+    "src/catalog/**",
+    "src/cms/**",
+    "src/coupons/**",
+    "src/inventory/**",
+    "src/notifications/**",
+    "src/orders/**",
+    "src/payments/**",
+    "src/reports/**",
+    "src/reviews/**",
+    "src/shipping/**",
+    "src/tasks/**",
+//    "src/modules/admin.module.ts",
+//    "src/modules/public.module.ts"
+  ]
+}

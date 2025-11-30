@@ -1,0 +1,1469 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider        = "prisma-client-js"
+  // output   = "../generated/prisma"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ======================
+// Enums
+// ======================
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+  refunded
+}
+
+enum ShipmentStatus {
+  pending
+  shipped
+  delivered
+  exception
+}
+
+enum PaymentStatus {
+  pending
+  authorized
+  captured
+  failed
+  voided
+}
+
+enum RefundStatus {
+  requested
+  approved
+  processed
+  failed
+}
+
+enum ReturnStatus {
+  requested
+  approved
+  rejected
+  received
+  closed
+}
+
+enum ReturnCondition {
+  new
+  opened
+  damaged
+}
+
+enum DiscountType {
+  percentage
+  fixed
+  shipping
+}
+
+enum CartStatus {
+  active
+  converted
+  abandoned
+  expired
+}
+
+enum NotificationChannel {
+  email
+  sms
+  push
+  realtime
+  in_app
+}
+
+enum ShippingMethodType {
+  standard
+  express
+  overnight
+  same_day
+  pickup
+}
+
+enum BlogPostStatus {
+  draft
+  published
+}
+
+enum OrganizationStatus {
+  pending_approval
+  active
+  suspended
+  rejected
+  closed
+}
+
+enum DocumentType {
+  national_id
+  passport
+  business_registration
+  tax_certificate
+  bank_statement
+  contract
+  portfolio
+  license
+  certification
+  other
+}
+
+enum DocumentStatus {
+  pending
+  approved
+  rejected
+}
+
+// ======================
+// Users and RBAC
+// ======================
+model User {
+  id          Int       @id @default(autoincrement())
+  email       String    @unique @db.VarChar(255)
+  password    String?   @db.VarChar(255)
+  firstName   String    @map("first_name") @db.VarChar(50)
+  lastName    String    @map("last_name") @db.VarChar(50)
+  googleId    String?   @unique @map("google_id") @db.VarChar(255)
+  isVerified  Boolean   @default(false) @map("is_verified")
+  verifiedAt  DateTime? @map("verified_at")
+  userType    String    @default("customer") @map("user_type") @db.VarChar(20) // customer, provider, admin
+  phone       String?   @db.VarChar(20)
+  avatar      String?   @db.VarChar(255)
+  isActive    Boolean   @default(true) @map("is_active")
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  userRoles              UserRole[]
+  userAddresses          UserAddress[]
+  orders                 Order[]
+  wishlists              Wishlist[]
+  returnRequests         ReturnRequest[]
+  reviews                Review[]
+  recentlyViewed         RecentlyViewed[]
+  couponUsers            CouponUser[]
+  Cart                   Cart[]
+  Notification           Notification[]
+  NotificationPreference NotificationPreference[]
+  otps                   Otp[]
+  passwordResetTokens    PasswordResetToken[]
+  organizationUsers      OrganizationUser[]
+
+  @@index([userType])
+  @@index([email])
+  @@index([isActive])
+  @@map("User")
+}
+
+model Otp {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  code      String    @db.VarChar(10)
+  type      String    @db.VarChar(50) // 'registration', 'password_reset', 'login'
+  expiresAt DateTime  @map("expires_at")
+  attempts  Int       @default(0)
+  isUsed    Boolean   @default(false) @map("is_used")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([code])
+  @@index([expiresAt])
+  @@map("Otp")
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  token     String    @unique @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at")
+  isUsed    Boolean   @default(false) @map("is_used")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("PasswordResetToken")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?
+  scope       String   @default("platform") @db.VarChar(20) // platform, organization
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  userRoles             UserRole[]
+  rolePermissions       RolePermission[]
+  organizationUsers     OrganizationUser[]
+  roleOrganizationTypes RoleOrganizationType[]
+
+  @@index([scope])
+  @@map("Role")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?
+  resource    String   @db.VarChar(50) // "product", "order", "attribute"
+  action      String   @db.VarChar(50) // "create", "read", "update", "delete"
+  scope       String   @default("organization") @db.VarChar(20) // platform, organization
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action, scope])
+  @@index([scope])
+  @@map("Permission")
+}
+
+model UserRole {
+  userId     Int      @map("user_id")
+  roleId     Int      @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+  @@map("UserRole")
+}
+
+model RolePermission {
+  roleId       Int      @map("role_id")
+  permissionId Int      @map("permission_id")
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@map("RolePermission")
+}
+
+model RoleOrganizationType {
+  roleId           Int    @map("role_id")
+  organizationType String @map("organization_type") @db.VarChar(50)
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, organizationType])
+  @@index([organizationType])
+  @@map("RoleOrganizationType")
+}
+
+// ======================
+// Organization System (Multi-Vendor/Multi-Stakeholder)
+// ======================
+model OrganizationType {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique @db.VarChar(50)
+  displayName      String   @db.VarChar(100)
+  description      String?
+  icon             String?  @db.VarChar(255)
+  category         String?  @db.VarChar(50)
+  defaultFeeType   String?  @map("default_fee_type") @db.VarChar(20)
+  defaultFeeAmount Float?   @map("default_fee_amount")
+  isActive         Boolean  @default(true) @map("is_active")
+  requiresApproval Boolean  @default(true) @map("requires_approval")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([isActive])
+  @@map("OrganizationType")
+}
+
+model Organization {
+  id                 Int                @id @default(autoincrement())
+  type               String             @db.VarChar(50)
+  status             OrganizationStatus @default(pending_approval)
+  name               String             @db.VarChar(255)
+  slug               String             @unique @db.VarChar(100)
+  email              String             @unique @db.VarChar(255)
+  phone              String             @db.VarChar(20)
+  logo               String?            @db.VarChar(255)
+  banner             String?            @db.VarChar(255)
+  description        String?
+  registrationNumber String?            @map("registration_number") @db.VarChar(100)
+  taxId              String?            @map("tax_id") @db.VarChar(50)
+  addressLine1       String?            @map("address_line1") @db.VarChar(255)
+  addressLine2       String?            @map("address_line2") @db.VarChar(255)
+  city               String?            @db.VarChar(100)
+  state              String?            @db.VarChar(100)
+  postalCode         String?            @map("postal_code") @db.VarChar(20)
+  country            String?            @db.Char(2)
+  feeType            String?            @db.VarChar(20)
+  feeAmount          Float?             @map("fee_amount")
+  currency           String             @default("USD") @db.Char(3)
+  seoTitle           String?            @map("seo_title") @db.VarChar(255)
+  seoDescription     String?            @map("seo_description") @db.VarChar(500)
+  isActive           Boolean            @default(true) @map("is_active")
+  approvedAt         DateTime?          @map("approved_at")
+  approvedBy         Int?               @map("approved_by")
+  rejectedAt         DateTime?          @map("rejected_at")
+  rejectionReason    String?            @map("rejection_reason")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  organizationUsers    OrganizationUser[]
+  attributes           OrganizationAttribute[]
+  organizationSettings OrganizationSettings?
+  documents            OrganizationDocument[]
+  products             Product[]
+  locations            Location[]
+  orderItems           OrderItem[]
+  shipments            Shipment[]
+  coupons              Coupon[]
+  refunds              Refund[]
+
+  @@index([type, status])
+  @@index([type, isActive])
+  @@index([status])
+  @@index([city, type])
+  @@index([slug])
+  @@map("Organization")
+}
+
+model OrganizationAttribute {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  key            String   @db.VarChar(100)
+  value          String   @db.Text
+  valueType      String   @db.VarChar(20)
+  valueString    String?  @map("value_string") @db.VarChar(255)
+  valueNumber    Float?   @map("value_number")
+  valueBoolean   Boolean? @map("value_boolean")
+  valueJson      Json?    @map("value_json") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  arrayItems   AttributeArrayItem[]
+
+  @@unique([organizationId, key])
+  @@index([key])
+  @@index([valueString])
+  @@index([valueNumber])
+  @@index([valueBoolean])
+  @@index([organizationId, key])
+  @@map("OrganizationAttribute")
+}
+
+model AttributeArrayItem {
+  id          Int    @id @default(autoincrement())
+  attributeId Int    @map("attribute_id")
+  value       String @db.VarChar(255)
+  position    Int    @default(0)
+
+  attribute OrganizationAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@index([attributeId])
+  @@index([value])
+  @@map("AttributeArrayItem")
+}
+
+model AttributeDefinition {
+  id           Int      @id @default(autoincrement())
+  key          String   @unique @db.VarChar(100)
+  label        String   @db.VarChar(255)
+  description  String?
+  dataType     String   @db.VarChar(20)
+  isRequired   Boolean  @default(false) @map("is_required")
+  minValue     Float?   @map("min_value")
+  maxValue     Float?   @map("max_value")
+  minLength    Int?     @map("min_length")
+  maxLength    Int?     @map("max_length")
+  pattern      String?  @db.VarChar(255)
+  group        String?  @db.VarChar(50)
+  displayOrder Int      @default(0) @map("display_order")
+  placeholder  String?  @db.VarChar(255)
+  helpText     String?  @map("help_text") @db.VarChar(500)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  options                     AttributeOption[]
+  applicableOrganizationTypes AttributeApplicableType[]
+
+  @@index([group])
+  @@index([isActive])
+  @@map("AttributeDefinition")
+}
+
+model AttributeOption {
+  id                    Int     @id @default(autoincrement())
+  attributeDefinitionId Int     @map("attribute_definition_id")
+  value                 String  @db.VarChar(100)
+  label                 String  @db.VarChar(255)
+  position              Int     @default(0)
+  isActive              Boolean @default(true) @map("is_active")
+
+  attributeDefinition AttributeDefinition @relation(fields: [attributeDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([attributeDefinitionId])
+  @@index([value])
+  @@map("AttributeOption")
+}
+
+model AttributeApplicableType {
+  attributeDefinitionId Int    @map("attribute_definition_id")
+  organizationType      String @map("organization_type") @db.VarChar(50)
+
+  attributeDefinition AttributeDefinition @relation(fields: [attributeDefinitionId], references: [id], onDelete: Cascade)
+
+  @@id([attributeDefinitionId, organizationType])
+  @@index([organizationType])
+  @@map("AttributeApplicableType")
+}
+
+model OrganizationUser {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  organizationId Int       @map("organization_id")
+  roleId         Int       @map("role_id")
+  isActive       Boolean   @default(true) @map("is_active")
+  invitedBy      Int?      @map("invited_by")
+  invitedAt      DateTime  @default(now()) @map("invited_at")
+  joinedAt       DateTime? @map("joined_at")
+  lastAccessAt   DateTime? @map("last_access_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user              User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization      Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role              Role                         @relation(fields: [roleId], references: [id])
+  customPermissions OrganizationUserPermission[]
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([isActive])
+  @@index([roleId])
+  @@map("OrganizationUser")
+}
+
+model OrganizationUserPermission {
+  organizationUserId Int    @map("organization_user_id")
+  permission         String @db.VarChar(100)
+
+  organizationUser OrganizationUser @relation(fields: [organizationUserId], references: [id], onDelete: Cascade)
+
+  @@id([organizationUserId, permission])
+  @@index([permission])
+  @@map("OrganizationUserPermission")
+}
+
+model OrganizationSettings {
+  id                Int      @id @default(autoincrement())
+  organizationId    Int      @unique @map("organization_id")
+  notificationEmail String?  @map("notification_email") @db.VarChar(255)
+  timezone          String?  @db.VarChar(50)
+  language          String   @default("en") @db.VarChar(10)
+  dateFormat        String?  @map("date_format") @db.VarChar(20)
+  returnPolicy      String?  @db.Text
+  privacyPolicy     String?  @db.Text
+  termsConditions   String?  @map("terms_conditions") @db.Text
+  shippingPolicy    String?  @map("shipping_policy") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  organization       Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  additionalSettings OrganizationSettingAttribute[]
+
+  @@map("OrganizationSettings")
+}
+
+model OrganizationSettingAttribute {
+  id                     Int      @id @default(autoincrement())
+  organizationSettingsId Int      @map("organization_settings_id")
+  key                    String   @db.VarChar(100)
+  value                  String   @db.Text
+  valueType              String   @db.VarChar(20)
+  valueString            String?  @map("value_string") @db.VarChar(255)
+  valueNumber            Float?   @map("value_number")
+  valueBoolean           Boolean? @map("value_boolean")
+
+  organizationSettings OrganizationSettings @relation(fields: [organizationSettingsId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationSettingsId, key])
+  @@index([key])
+  @@map("OrganizationSettingAttribute")
+}
+
+model OrganizationDocument {
+  id              Int            @id @default(autoincrement())
+  organizationId  Int            @map("organization_id")
+  type            DocumentType
+  status          DocumentStatus @default(pending)
+  fileUrl         String         @map("file_url") @db.VarChar(255)
+  fileName        String         @map("file_name") @db.VarChar(255)
+  fileSize        Int?           @map("file_size")
+  mimeType        String?        @map("mime_type") @db.VarChar(100)
+  uploadedAt      DateTime       @default(now()) @map("uploaded_at")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  reviewedBy      Int?           @map("reviewed_by")
+  rejectionReason String?        @map("rejection_reason")
+  expiresAt       DateTime?      @map("expires_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, type])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("OrganizationDocument")
+}
+
+// ======================
+// Catalog: Product, Variant, Options, Media, Categories
+// ======================
+model Product {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  name           String    @db.VarChar(255)
+  description    String?
+  seoTitle       String?   @map("seo_title") @db.VarChar(255)
+  seoDescription String?   @map("seo_description") @db.VarChar(255)
+  seoKeywords    String?   @map("seo_keywords") @db.VarChar(255)
+  seoSlug        String?   @unique @map("seo_slug") @db.VarChar(255)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relations
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+  productImages     ProductImage[]
+  variants          Variant[]
+  productOptions    ProductOption[]
+  productCategories ProductCategory[]
+  productAttributes ProductAttribute[]
+  reviews           Review[]
+  recentlyViewed    RecentlyViewed[]
+  couponProducts    CouponProduct[]
+
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  // @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  // @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
+  // @@fulltext([name])
+  @@map("Product")
+}
+
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  imageUrl  String  @map("image_url") @db.VarChar(255)
+  altText   String? @map("alt_text") @db.VarChar(255)
+  position  Int     @default(1)
+  isMain    Boolean @default(false) @map("is_main")
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("ProductImage")
+}
+
+model Variant {
+  id             Int      @id @default(autoincrement())
+  productId      Int      @map("product_id")
+  sku            String   @unique @db.VarChar(50)
+  price          Float
+  compareAtPrice Float?   @map("compare_at_price")
+  currency       String   @default("USD") @db.Char(3)
+  barcode        String?  @db.VarChar(64)
+  weight         Float?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  product             Product              @relation(fields: [productId], references: [id])
+  variantImages       VariantImage[]
+  variantOptionValues VariantOptionValue[]
+  variantInventories  VariantInventory[]
+  inventoryMovements  InventoryMovement[]
+  cartItems           CartItem[]
+  wishlistItems       WishlistItem[]
+  orderItems          OrderItem[]
+  bundleItems         BundleItem[]
+
+  @@map("Variant")
+}
+
+model VariantImage {
+  id        Int     @id @default(autoincrement())
+  variantId Int     @map("variant_id")
+  imageUrl  String  @map("image_url") @db.VarChar(255)
+  altText   String? @map("alt_text") @db.VarChar(255)
+  position  Int     @default(1)
+
+  // Relations
+  variant Variant @relation(fields: [variantId], references: [id])
+
+  @@map("VariantImage")
+}
+
+model ProductOption {
+  id        Int    @id @default(autoincrement())
+  productId Int    @map("product_id")
+  name      String @db.VarChar(50)
+  position  Int    @default(1)
+
+  // Relations
+  product             Product              @relation(fields: [productId], references: [id])
+  optionValues        OptionValue[]
+  variantOptionValues VariantOptionValue[]
+
+  @@map("ProductOption")
+}
+
+model OptionValue {
+  id       Int    @id @default(autoincrement())
+  optionId Int    @map("option_id")
+  value    String @db.VarChar(100)
+  position Int    @default(1)
+
+  // Relations
+  productOption       ProductOption        @relation(fields: [optionId], references: [id])
+  variantOptionValues VariantOptionValue[]
+
+  @@map("OptionValue")
+}
+
+model VariantOptionValue {
+  variantId     Int @map("variant_id")
+  optionId      Int @map("option_id")
+  optionValueId Int @map("option_value_id")
+
+  // Relations
+  variant       Variant       @relation(fields: [variantId], references: [id])
+  productOption ProductOption @relation(fields: [optionId], references: [id])
+  optionValue   OptionValue   @relation(fields: [optionValueId], references: [id])
+
+  @@id([variantId, optionId, optionValueId])
+  @@map("VariantOptionValue")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  description String?
+  slug        String   @unique @db.VarChar(150)
+  parentId    Int?     @map("parent_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  parent            Category?         @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children          Category[]        @relation("CategoryToCategory")
+  productCategories ProductCategory[]
+  couponCategories  CouponCategory[]
+
+  @@map("Category")
+}
+
+model ProductCategory {
+  productId  Int @map("product_id")
+  categoryId Int @map("category_id")
+
+  // Relations
+  product  Product  @relation(fields: [productId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@id([productId, categoryId])
+  @@map("ProductCategory")
+}
+
+model ProductAttribute {
+  id        Int    @id @default(autoincrement())
+  productId Int    @map("product_id")
+  name      String @db.VarChar(50)
+  value     String @db.VarChar(255)
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([productId, name, value])
+  @@map("ProductAttribute")
+}
+
+// ======================
+// Bundles
+// ======================
+model Bundle {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  description String?
+  price       Float
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  bundleItems   BundleItem[]
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+  orderItems    OrderItem[]
+
+  @@map("Bundle")
+}
+
+model BundleItem {
+  id        Int      @id @default(autoincrement())
+  bundleId  Int      @map("bundle_id")
+  variantId Int      @map("variant_id")
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  bundle  Bundle  @relation(fields: [bundleId], references: [id])
+  variant Variant @relation(fields: [variantId], references: [id])
+
+  @@unique([bundleId, variantId])
+  @@map("BundleItem")
+}
+
+// ======================
+// Shipping
+// ======================
+model ShippingMethod {
+  id            Int                @id @default(autoincrement())
+  name          String             @db.VarChar(100)
+  code          String             @unique @db.VarChar(50)
+  type          ShippingMethodType
+  description   String?
+  baseRate      Float
+  freeThreshold Float?             @map("free_threshold")
+  minDays       Int                @map("min_days")
+  maxDays       Int                @map("max_days")
+  isActive      Boolean            @default(true) @map("is_active")
+  sortOrder     Int                @default(0) @map("sort_order")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @default(now()) @map("updated_at")
+
+  // Relations
+  orders Order[]
+
+  @@map("ShippingMethod")
+}
+
+// ======================
+// Inventory
+// ======================
+model Location {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?     @map("organization_id")
+  name           String   @db.VarChar(100)
+  addressLine1   String?  @map("address_line1") @db.VarChar(255)
+  addressLine2   String?  @map("address_line2") @db.VarChar(255)
+  city           String?  @db.VarChar(100)
+  state          String?  @db.VarChar(100)
+  postalCode     String?  @map("postal_code") @db.VarChar(20)
+  country        String?  @db.Char(2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  organization       Organization?       @relation(fields: [organizationId], references: [id])
+  variantInventories VariantInventory[]
+  inventoryMovements InventoryMovement[]
+  shipments          Shipment[]
+
+  @@index([organizationId])
+  @@map("Location")
+}
+
+model VariantInventory {
+  id         Int      @id @default(autoincrement())
+  variantId  Int      @map("variant_id")
+  locationId Int      @map("location_id")
+  quantity   Int      @default(0)
+  reserved   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  variant  Variant  @relation(fields: [variantId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([variantId, locationId])
+  @@map("VariantInventory")
+}
+
+model InventoryMovement {
+  id         Int      @id @default(autoincrement())
+  variantId  Int      @map("variant_id")
+  locationId Int      @map("location_id")
+  orderId    Int?     @map("order_id")
+  delta      Int
+  reason     String   @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  variant  Variant  @relation(fields: [variantId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([variantId])
+  @@index([locationId])
+  @@index([orderId])
+  @@map("InventoryMovement")
+}
+
+// ======================
+// Cart and Wishlist
+// ======================
+model Cart {
+  id             Int        @id @default(autoincrement())
+  userId         Int?       @map("user_id")
+  sessionId      String?    @unique @map("session_id") @db.VarChar(64)
+  status         CartStatus @default(active)
+  lastActivityAt DateTime   @default(now()) @map("last_activity_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @default(now()) @map("updated_at")
+
+  // Relations
+  user      User?      @relation(fields: [userId], references: [id])
+  cartItems CartItem[]
+
+  @@index([userId, status])
+  @@index([status, lastActivityAt])
+  @@index([sessionId])
+  @@map("Cart")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    Int      @map("cart_id")
+  variantId Int?     @map("variant_id")
+  bundleId  Int?     @map("bundle_id")
+  quantity  Int      @default(1)
+  unitPrice Float    @map("unit_price")
+  currency  String   @default("USD") @db.Char(3)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  cart    Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant Variant? @relation(fields: [variantId], references: [id])
+  bundle  Bundle?  @relation(fields: [bundleId], references: [id])
+
+  @@unique([cartId, variantId])
+  @@unique([cartId, bundleId])
+  @@index([cartId])
+  @@index([variantId])
+  @@index([bundleId])
+  @@map("CartItem")
+}
+
+model Wishlist {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id])
+  wishlistItems WishlistItem[]
+
+  @@map("Wishlist")
+}
+
+model WishlistItem {
+  id         Int      @id @default(autoincrement())
+  wishlistId Int      @map("wishlist_id")
+  variantId  Int?     @map("variant_id")
+  bundleId   Int?     @map("bundle_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  wishlist Wishlist @relation(fields: [wishlistId], references: [id])
+  variant  Variant? @relation(fields: [variantId], references: [id])
+  bundle   Bundle?  @relation(fields: [bundleId], references: [id])
+
+  @@unique([wishlistId, variantId])
+  @@unique([wishlistId, bundleId])
+  @@map("WishlistItem")
+}
+
+// ======================
+// Orders
+// ======================
+model Order {
+  id                Int         @id @default(autoincrement())
+  userId            Int         @map("user_id")
+  externalRef       String?     @map("external_ref") @db.VarChar(100)
+  currentStatus     OrderStatus @default(pending)
+  subtotalAmount    Float       @map("subtotal_amount")
+  discountAmount    Float       @default(0) @map("discount_amount")
+  taxAmount         Float       @default(0) @map("tax_amount")
+  shippingAmount    Float       @default(0) @map("shipping_amount")
+  totalAmount       Float       @map("total_amount")
+  currency          String      @default("USD") @db.Char(3)
+  billingAddressId  Int?        @map("billing_address_id")
+  shippingAddressId Int?        @map("shipping_address_id")
+  shippingMethodId  Int?        @map("shipping_method_id")
+  placedAt          DateTime?   @map("placed_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @default(now()) @map("updated_at")
+
+  // Relations
+  user                 User                 @relation(fields: [userId], references: [id])
+  billingAddress       OrderAddress?        @relation("OrderBillingAddress", fields: [billingAddressId], references: [id])
+  shippingAddress      OrderAddress?        @relation("OrderShippingAddress", fields: [shippingAddressId], references: [id])
+  shippingMethod       ShippingMethod?      @relation(fields: [shippingMethodId], references: [id])
+  orderItems           OrderItem[]
+  orderAddresses       OrderAddress[]
+  shipments            Shipment[]
+  payments             Payment[]
+  refunds              Refund[]
+  returnRequests       ReturnRequest[]
+  orderStatusHistories OrderStatusHistory[]
+  couponRedemptions    CouponRedemption[]
+  inventoryMovements   InventoryMovement[]
+
+  @@map("Order")
+}
+
+model OrderItem {
+  id                  Int      @id @default(autoincrement())
+  orderId             Int      @map("order_id")
+  organizationId      Int      @map("organization_id")
+  variantId           Int?     @map("variant_id")
+  bundleId            Int?     @map("bundle_id")
+  quantity            Int
+  unitPrice           Float    @map("unit_price")
+  discountAmount      Float    @default(0) @map("discount_amount")
+  taxAmount           Float    @default(0) @map("tax_amount")
+  lineTotal           Float    @map("line_total")
+  organizationAmount  Float    @map("organization_amount")
+  platformFeeAmount   Float    @default(0) @map("platform_fee_amount")
+  currency            String   @default("USD") @db.Char(3)
+  productNameSnapshot String?  @map("product_name_snapshot") @db.VarChar(255)
+  variantSkuSnapshot  String?  @map("variant_sku_snapshot") @db.VarChar(50)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  order            Order             @relation(fields: [orderId], references: [id])
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  variant          Variant?          @relation(fields: [variantId], references: [id])
+  bundle           Bundle?           @relation(fields: [bundleId], references: [id])
+  fulfillmentItems FulfillmentItem[]
+  refundItems      RefundItem[]
+  returnItems      ReturnItem[]
+  reviews          Review[]
+
+  @@index([orderId])
+  @@index([organizationId])
+  @@index([variantId])
+  @@map("OrderItem")
+}
+
+model OrderAddress {
+  id                  Int      @id @default(autoincrement())
+  orderId             Int      @map("order_id")
+  type                String   @db.VarChar(20)
+  sourceUserAddressId Int?     @map("source_user_address_id")
+  firstName           String   @map("first_name") @db.VarChar(50)
+  lastName            String   @map("last_name") @db.VarChar(50)
+  company             String?  @db.VarChar(100)
+  email               String?  @db.VarChar(255)
+  phone               String?  @db.VarChar(20)
+  addressLine1        String   @map("address_line1") @db.VarChar(255)
+  addressLine2        String?  @map("address_line2") @db.VarChar(255)
+  city                String   @db.VarChar(100)
+  state               String   @db.VarChar(100)
+  postalCode          String   @map("postal_code") @db.VarChar(20)
+  country             String   @db.Char(2)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  order             Order        @relation(fields: [orderId], references: [id])
+  sourceUserAddress UserAddress? @relation(fields: [sourceUserAddressId], references: [id])
+  billingOrders     Order[]      @relation("OrderBillingAddress")
+  shippingOrders    Order[]      @relation("OrderShippingAddress")
+
+  @@unique([orderId, type])
+  @@index([orderId])
+  @@index([sourceUserAddressId])
+  @@map("OrderAddress")
+}
+
+// ======================
+// Fulfillment
+// ======================
+model Shipment {
+  id             Int            @id @default(autoincrement())
+  orderId        Int            @map("order_id")
+  organizationId Int            @map("organization_id")
+  fromLocationId Int?           @map("from_location_id")
+  carrier        String?        @db.VarChar(50)
+  service        String?        @db.VarChar(50)
+  trackingNumber String?        @unique @map("tracking_number") @db.VarChar(100)
+  status         ShipmentStatus @default(pending)
+  shippedAt      DateTime?      @map("shipped_at")
+  deliveredAt    DateTime?      @map("delivered_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @default(now()) @map("updated_at")
+
+  // Relations
+  order            Order             @relation(fields: [orderId], references: [id])
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  fromLocation     Location?         @relation(fields: [fromLocationId], references: [id])
+  fulfillmentItems FulfillmentItem[]
+
+  @@index([orderId])
+  @@index([organizationId])
+  @@map("Shipment")
+}
+
+model FulfillmentItem {
+  id          Int      @id @default(autoincrement())
+  shipmentId  Int      @map("shipment_id")
+  orderItemId Int      @map("order_item_id")
+  quantity    Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  shipment  Shipment  @relation(fields: [shipmentId], references: [id])
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@index([shipmentId])
+  @@index([orderItemId])
+  @@map("FulfillmentItem")
+}
+
+// ======================
+// Payments, Events, Refunds
+// ======================
+model Payment {
+  id            Int           @id @default(autoincrement())
+  orderId       Int           @map("order_id")
+  amount        Float
+  status        PaymentStatus @default(pending)
+  gateway       String        @db.VarChar(50)
+  provider      String?       @db.VarChar(50)
+  transactionId String        @unique @map("transaction_id") @db.VarChar(255)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @default(now()) @map("updated_at")
+
+  // Relations
+  order           Order            @relation(fields: [orderId], references: [id])
+  transactionLogs TransactionLog[]
+  refunds         Refund[]
+
+  @@index([orderId])
+  @@map("Payment")
+}
+
+model TransactionLog {
+  id        Int      @id @default(autoincrement())
+  paymentId Int      @map("payment_id")
+  eventType String   @map("event_type") @db.VarChar(50)
+  amount    Float?
+  status    String   @db.VarChar(50)
+  payload   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([eventType])
+  @@map("TransactionLog")
+}
+
+model Refund {
+  id                 Int          @id @default(autoincrement())
+  orderId            Int          @map("order_id")
+  organizationId     Int?         @map("organization_id")
+  paymentId          Int?         @map("payment_id")
+  amount             Float
+  organizationAmount Float?       @map("organization_amount")
+  currency           String       @default("USD") @db.Char(3)
+  status             RefundStatus @default(requested)
+  reason             String?      @db.VarChar(255)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @default(now()) @map("updated_at")
+
+  // Relations
+  order        Order         @relation(fields: [orderId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  payment      Payment?      @relation(fields: [paymentId], references: [id])
+  refundItems  RefundItem[]
+
+  @@index([orderId])
+  @@index([organizationId])
+  @@index([paymentId])
+  @@map("Refund")
+}
+
+model RefundItem {
+  id          Int      @id @default(autoincrement())
+  refundId    Int      @map("refund_id")
+  orderItemId Int      @map("order_item_id")
+  quantity    Int
+  amount      Float
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  refund    Refund    @relation(fields: [refundId], references: [id])
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@map("RefundItem")
+}
+
+// ======================
+// Returns
+// ======================
+model ReturnRequest {
+  id          Int          @id @default(autoincrement())
+  orderId     Int          @map("order_id")
+  userId      Int          @map("user_id")
+  status      ReturnStatus @default(requested)
+  reason      String?      @db.VarChar(255)
+  requestedAt DateTime     @default(now()) @map("requested_at")
+  approvedAt  DateTime?    @map("approved_at")
+  receivedAt  DateTime?    @map("received_at")
+  closedAt    DateTime?    @map("closed_at")
+
+  // Relations
+  order       Order        @relation(fields: [orderId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  returnItems ReturnItem[]
+
+  @@index([orderId])
+  @@index([userId])
+  @@map("ReturnRequest")
+}
+
+model ReturnItem {
+  id              Int             @id @default(autoincrement())
+  returnRequestId Int             @map("return_request_id")
+  orderItemId     Int             @map("order_item_id")
+  quantity        Int
+  reason          String?         @db.VarChar(255)
+  condition       ReturnCondition @default(new)
+
+  // Relations
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id])
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id])
+
+  @@map("ReturnItem")
+}
+
+// ======================
+// Order status history
+// ======================
+model OrderStatusHistory {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @map("order_id")
+  status    String   @db.VarChar(50)
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([orderId, createdAt])
+  @@map("OrderStatusHistory")
+}
+
+// ======================
+// Coupons and Redemptions
+// ======================
+model Coupon {
+  id             Int          @id @default(autoincrement())
+  organizationId Int?         @map("organization_id")
+  code           String       @unique @db.VarChar(50)
+  discountType   DiscountType @map("discount_type")
+  discountAmount Float        @map("discount_amount")
+  minOrderAmount Float?       @map("min_order_amount")
+  maxUses        Int?         @map("max_uses")
+  maxUsesPerUser Int?         @map("max_uses_per_user")
+  isGlobal       Boolean      @default(false) @map("is_global")
+  isActive       Boolean      @default(true) @map("is_active")
+  startDate      DateTime?    @map("start_date")
+  endDate        DateTime?    @map("end_date")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @default(now()) @map("updated_at")
+
+  // Relations
+  organization      Organization?      @relation(fields: [organizationId], references: [id])
+  couponProducts    CouponProduct[]
+  couponCategories  CouponCategory[]
+  couponUsers       CouponUser[]
+  couponRedemptions CouponRedemption[]
+
+  @@index([organizationId])
+  @@index([isGlobal, isActive])
+  @@map("Coupon")
+}
+
+model CouponProduct {
+  couponId  Int @map("coupon_id")
+  productId Int @map("product_id")
+
+  // Relations
+  coupon  Coupon  @relation(fields: [couponId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@id([couponId, productId])
+  @@map("CouponProduct")
+}
+
+model CouponCategory {
+  couponId   Int @map("coupon_id")
+  categoryId Int @map("category_id")
+
+  // Relations
+  coupon   Coupon   @relation(fields: [couponId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@id([couponId, categoryId])
+  @@map("CouponCategory")
+}
+
+model CouponUser {
+  couponId Int @map("coupon_id")
+  userId   Int @map("user_id")
+
+  // Relations
+  coupon Coupon @relation(fields: [couponId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@id([couponId, userId])
+  @@map("CouponUser")
+}
+
+model CouponRedemption {
+  id            Int      @id @default(autoincrement())
+  orderId       Int      @map("order_id")
+  couponId      Int      @map("coupon_id")
+  amountApplied Float    @map("amount_applied")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order  Order  @relation(fields: [orderId], references: [id])
+  coupon Coupon @relation(fields: [couponId], references: [id])
+
+  @@index([orderId])
+  @@index([couponId])
+  @@map("CouponRedemption")
+}
+
+// ======================
+// Reviews and Verification
+// ======================
+model Review {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  productId   Int      @map("product_id")
+  orderItemId Int?     @map("order_item_id")
+  rating      Int
+  comment     String?
+  status      String   @default("pending") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  product      Product       @relation(fields: [productId], references: [id])
+  orderItem    OrderItem?    @relation(fields: [orderItemId], references: [id])
+  reviewImages ReviewImage[]
+
+  @@index([userId])
+  @@index([productId])
+  @@index([orderItemId])
+  @@map("Review")
+}
+
+model ReviewImage {
+  id       Int    @id @default(autoincrement())
+  reviewId Int    @map("review_id")
+  imageUrl String @map("image_url") @db.VarChar(255)
+
+  // Relations
+  review Review @relation(fields: [reviewId], references: [id])
+
+  @@map("ReviewImage")
+}
+
+// ======================
+// User Address Book and Activity
+// ======================
+model UserAddress {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @map("user_id")
+  label             String?   @db.VarChar(50)
+  firstName         String    @map("first_name") @db.VarChar(50)
+  lastName          String    @map("last_name") @db.VarChar(50)
+  company           String?   @db.VarChar(100)
+  phone             String?   @db.VarChar(20)
+  addressLine1      String    @map("address_line1") @db.VarChar(255)
+  addressLine2      String?   @map("address_line2") @db.VarChar(255)
+  city              String    @db.VarChar(100)
+  state             String    @db.VarChar(100)
+  postalCode        String    @map("postal_code") @db.VarChar(20)
+  country           String    @db.Char(2)
+  isDefaultBilling  Boolean   @default(false) @map("is_default_billing")
+  isDefaultShipping Boolean   @default(false) @map("is_default_shipping")
+  isActive          Boolean   @default(true) @map("is_active")
+  lastUsedAt        DateTime? @map("last_used_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @map("updated_at")
+
+  // Relations
+  user           User           @relation(fields: [userId], references: [id])
+  orderAddresses OrderAddress[]
+
+  @@index([userId])
+  @@index([userId, label])
+  @@index([userId, isDefaultShipping])
+  @@index([userId, isDefaultBilling])
+  @@map("UserAddress")
+}
+
+model RecentlyViewed {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  productId    Int      @map("product_id")
+  lastViewedAt DateTime @default(now()) @map("last_viewed_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+  @@map("RecentlyViewed")
+}
+
+// ======================
+// Notifications
+// ======================
+model NotificationTemplate {
+  id        Int                 @id @default(autoincrement())
+  name      String              @unique @db.VarChar(100)
+  event     String              @db.VarChar(100)
+  channel   NotificationChannel
+  subject   String?             @db.VarChar(255)
+  template  String
+  isActive  Boolean             @default(true) @map("is_active")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @default(now()) @map("updated_at")
+
+  @@index([event, channel])
+  @@map("NotificationTemplate")
+}
+
+model Notification {
+  id        Int                 @id @default(autoincrement())
+  userId    Int                 @map("user_id")
+  event     String              @db.VarChar(100)
+  channel   NotificationChannel
+  title     String?             @db.VarChar(255)
+  message   String
+  data      Json?
+  status    String              @default("pending") @db.VarChar(20)
+  sentAt    DateTime?           @map("sent_at")
+  readAt    DateTime?           @map("read_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @default(now()) @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([event])
+  @@index([status])
+  @@map("Notification")
+}
+
+model NotificationPreference {
+  id        Int                 @id @default(autoincrement())
+  userId    Int                 @map("user_id")
+  event     String              @db.VarChar(100)
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @default(now()) @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, event, channel])
+  @@index([userId])
+  @@map("NotificationPreference")
+}
+
+//extra table which is out of the box from e-commerce concept
+model BlogPost {
+  id          Int            @id @default(autoincrement())
+  title       String         @db.VarChar(255)
+  slug        String         @unique @db.VarChar(255)
+  content     String // Stores Jodit HTML output
+  excerpt     String?        @db.VarChar(500)
+  status      BlogPostStatus @default(draft)
+  image       String?        @db.VarChar(255)
+  publishedAt DateTime?      @map("published_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @default(now()) @map("updated_at")
+
+  @@index([status, publishedAt])
+  @@map("BlogPost")
+}
+
+//cms - Static homepage sections only (6 sections)
+// Dynamic sections (products, events, reviews) use existing APIs
+model HomepageSection {
+  id Int @id @default(autoincrement())
+
+  // STATIC SECTIONS ONLY (Full content stored in JSON)
+  header         Json? @map("header") @db.JsonB // Logo, navigation menu, top bar
+  heroBanner     Json? @map("hero_banner") @db.JsonB // Carousel with slides, images, buttons
+  featuresBar    Json? @map("features_bar") @db.JsonB // 4 features (365 days return, free shipping, etc)
+  ourStory       Json? @map("our_story") @db.JsonB // About section with text and images
+  storeLocations Json? @map("store_locations") @db.JsonB // Wine Shop & Liquor Shop maps
+  footer         Json? @map("footer") @db.JsonB // Footer links, social media, copyright
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("homepage_section")
+}
