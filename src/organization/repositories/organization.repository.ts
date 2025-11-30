@@ -41,6 +41,19 @@ export type OrganizationWithRelations = Organization & {
     timezone: string | null;
     language: string;
   } | null;
+  organizationAttributes?: {
+    id: number;
+    key: string;
+    valueType: string;
+    valueString: string | null;
+    valueNumber: number | null;
+    valueBoolean: boolean | null;
+    valueJson: any | null;
+    arrayItems: {
+      value: string;
+      position: number;
+    }[];
+  }[];
   _count?: {
     organizationUsers: number;
     products: number;
@@ -98,6 +111,11 @@ export class OrganizationRepository {
         notificationEmail: true,
         timezone: true,
         language: true,
+      },
+    },
+    organizationAttributes: {
+      include: {
+        arrayItems: true,
       },
     },
     _count: {

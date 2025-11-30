@@ -30,6 +30,7 @@ import { QueueModule } from './core/config/queue/queue.module';
 // Organizational Modules
 import { CoreModule } from './modules/core.module';
 import { RbacModule } from './rbac/rbac.module';
+import { AttributesModule } from './attributes/attributes.module';
 // TEMPORARILY COMMENTED OUT - Will re-enable after multi-vendor refactor
 // import { AdminModule } from './modules/admin.module';
 // import { PublicModule } from './modules/public.module';
@@ -61,6 +62,7 @@ import { RbacModule } from './rbac/rbac.module';
 
     // Feature Modules (Organized)
     CoreModule, // Auth, User - KEEPING THIS FOR PHASE 2 WORK
+    AttributesModule,
     RbacModule, // Role-Based Access Control - Separated from Auth & User
     // AdminModule, // Orders, Cart, Inventory, Payments, Reports, Coupons, Shipping, Bundles // COMMENTED OUT
     // PublicModule, // Catalog, Reviews, Notifications // COMMENTED OUT

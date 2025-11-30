@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from 'src/core/config/prisma/prisma.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { AttributesModule } from 'src/attributes/attributes.module';
 
 // Controllers
 import { OrganizationController } from './organization.controller';
@@ -38,6 +39,7 @@ import {
   imports: [
     PrismaModule,
     NotificationsModule,
+    AttributesModule,
   ],
   controllers: [
     OrganizationController,

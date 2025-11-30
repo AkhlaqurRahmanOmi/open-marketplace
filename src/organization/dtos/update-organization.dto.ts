@@ -110,5 +110,8 @@ export class UpdateOrganizationDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  attributes?: Record<string, any>;
 }
 

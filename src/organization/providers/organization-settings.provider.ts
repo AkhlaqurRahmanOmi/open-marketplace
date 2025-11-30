@@ -4,8 +4,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { OrganizationSettings } from '@prisma/client';
-import { OrganizationRepository } from '../repositories/organization.repository';
-import { OrganizationSettingsRepository, SettingsWithAttributes } from '../repositories/organization-settings.repository';
+import { OrganizationRepository } from '../repositories';
+import { OrganizationSettingsRepository, SettingsWithAttributes } from '../repositories';
 import { UpdateOrganizationSettingsDto } from '../dtos';
 
 @Injectable()
@@ -18,18 +18,75 @@ export class OrganizationSettingsProvider {
   ) {}
 
   async getSettings(organizationId: number): Promise<SettingsWithAttributes> {
-    // Verify organization exists
+    const organization = await this.verifyOrganizationExists(organizationId);
+    const settings = await this.ensureSettingsExist(organizationId, organization.email);
+    return settings;
+  }
+
+  async updateSettings(
+    organizationId: number,
+    dto: UpdateOrganizationSettingsDto,
+  ): Promise<SettingsWithAttributes> {
+    const organization = await this.verifyOrganizationExists(organizationId);
+    const { additionalSettings, ...coreSettings } = dto;
+
+    await this.settingsRepo.upsert(organizationId, coreSettings);
+
+    if (additionalSettings) {
+      const settings = await this.ensureSettingsExist(organizationId, organization.email);
+      await this.upsertAdditionalSettings(settings.id, additionalSettings);
+    }
+
+    this.logger.log(`Settings updated for organization ${organizationId}`);
+    return this.getSettingsOrThrow(organizationId);
+  }
+
+  async getAdditionalSettings(organizationId: number): Promise<Record<string, any>> {
+    await this.verifyOrganizationExists(organizationId);
+    return this.settingsRepo.getAdditionalSettings(organizationId);
+  }
+
+  async setAdditionalSetting(
+    organizationId: number,
+    key: string,
+    value: any,
+  ): Promise<void> {
+    const organization = await this.verifyOrganizationExists(organizationId);
+    const settings = await this.ensureSettingsExist(organizationId, organization.email);
+    const { stringValue, valueType } = this.convertSettingValue(value);
+
+    await this.settingsRepo.upsertAttribute(settings.id, key, stringValue, valueType);
+    this.logger.log(`Additional setting "${key}" updated for organization ${organizationId}`);
+  }
+
+  async deleteAdditionalSetting(
+    organizationId: number,
+    key: string,
+  ): Promise<void> {
+    await this.verifyOrganizationExists(organizationId);
+    const settings = await this.getSettingsOrThrow(organizationId);
+    await this.settingsRepo.deleteAttribute(settings.id, key);
+    this.logger.log(`Additional setting "${key}" deleted for organization ${organizationId}`);
+  }
+
+  private async verifyOrganizationExists(organizationId: number) {
     const organization = await this.organizationRepo.findByIdBasic(organizationId);
     if (!organization) {
       throw new NotFoundException(`Organization with ID ${organizationId} not found`);
     }
+    return organization;
+  }
 
+  private async ensureSettingsExist(
+    organizationId: number,
+    email: string,
+  ): Promise<SettingsWithAttributes> {
     let settings = await this.settingsRepo.findByOrganizationId(organizationId);
+
     if (!settings) {
-      // Create default settings if not exists
       await this.settingsRepo.create({
         organization: { connect: { id: organizationId } },
-        notificationEmail: organization.email,
+        notificationEmail: email,
         language: 'en',
       });
       settings = await this.settingsRepo.findByOrganizationId(organizationId);
@@ -41,117 +98,34 @@ export class OrganizationSettingsProvider {
     return settings;
   }
 
-  async updateSettings(
-    organizationId: number,
-    dto: UpdateOrganizationSettingsDto,
-  ): Promise<SettingsWithAttributes> {
-    // Verify organization exists
-    const organization = await this.organizationRepo.findByIdBasic(organizationId);
-    if (!organization) {
-      throw new NotFoundException(`Organization with ID ${organizationId} not found`);
+  private async getSettingsOrThrow(organizationId: number): Promise<SettingsWithAttributes> {
+    const settings = await this.settingsRepo.findByOrganizationId(organizationId);
+    if (!settings) {
+      throw new NotFoundException(`Settings not found for organization ${organizationId}`);
     }
-
-    // Extract additional settings from DTO
-    const { additionalSettings, ...coreSettings } = dto;
-
-    // Upsert core settings
-    await this.settingsRepo.upsert(organizationId, coreSettings);
-
-    // Handle additional settings if provided
-    if (additionalSettings) {
-      const settings = await this.settingsRepo.findByOrganizationId(organizationId);
-      if (settings) {
-        for (const [key, value] of Object.entries(additionalSettings)) {
-          const valueType = typeof value === 'number' ? 'number' 
-            : typeof value === 'boolean' ? 'boolean'
-            : typeof value === 'object' ? 'json'
-            : 'string';
-          
-          const stringValue = valueType === 'json' 
-            ? JSON.stringify(value) 
-            : String(value);
-
-          await this.settingsRepo.upsertAttribute(
-            settings.id,
-            key,
-            stringValue,
-            valueType
-          );
-        }
-      }
-    }
-
-    this.logger.log(`Settings updated for organization ${organizationId}`);
-
-    const result = await this.settingsRepo.findByOrganizationId(organizationId);
-    if (!result) {
-      throw new NotFoundException(`Failed to retrieve settings for organization ${organizationId}`);
-    }
-    return result;
+    return settings;
   }
 
-  async getAdditionalSettings(organizationId: number): Promise<Record<string, any>> {
-    // Verify organization exists
-    const organization = await this.organizationRepo.findByIdBasic(organizationId);
-    if (!organization) {
-      throw new NotFoundException(`Organization with ID ${organizationId} not found`);
-    }
-
-    return this.settingsRepo.getAdditionalSettings(organizationId);
-  }
-
-  async setAdditionalSetting(
-    organizationId: number,
-    key: string,
-    value: any,
-  ): Promise<void> {
-    // Verify organization exists
-    const organization = await this.organizationRepo.findByIdBasic(organizationId);
-    if (!organization) {
-      throw new NotFoundException(`Organization with ID ${organizationId} not found`);
-    }
-
-    // Ensure settings exist
-    let settings = await this.settingsRepo.findByOrganizationId(organizationId);
-    if (!settings) {
-      await this.settingsRepo.create({
-        organization: { connect: { id: organizationId } },
-        notificationEmail: organization.email,
-        language: 'en',
-      });
-      settings = await this.settingsRepo.findByOrganizationId(organizationId);
-    }
-
-    if (!settings) {
-      throw new NotFoundException(`Failed to retrieve settings for organization ${organizationId}`);
-    }
-
+  private convertSettingValue(value: any): { stringValue: string; valueType: string } {
     const valueType = typeof value === 'number' ? 'number'
       : typeof value === 'boolean' ? 'boolean'
-      : typeof value === 'object' ? 'json'
-      : 'string';
+        : typeof value === 'object' ? 'json'
+          : 'string';
 
     const stringValue = valueType === 'json'
       ? JSON.stringify(value)
       : String(value);
 
-    await this.settingsRepo.upsertAttribute(settings.id, key, stringValue, valueType);
-
-    this.logger.log(`Additional setting "${key}" updated for organization ${organizationId}`);
+    return { stringValue, valueType };
   }
 
-  async deleteAdditionalSetting(
-    organizationId: number,
-    key: string,
+  private async upsertAdditionalSettings(
+    settingsId: number,
+    additionalSettings: Record<string, any>,
   ): Promise<void> {
-    const settings = await this.settingsRepo.findByOrganizationId(organizationId);
-    if (!settings) {
-      throw new NotFoundException(`Settings not found for organization ${organizationId}`);
+    for (const [key, value] of Object.entries(additionalSettings)) {
+      const { stringValue, valueType } = this.convertSettingValue(value);
+      await this.settingsRepo.upsertAttribute(settingsId, key, stringValue, valueType);
     }
-
-    await this.settingsRepo.deleteAttribute(settings.id, key);
-
-    this.logger.log(`Additional setting "${key}" deleted for organization ${organizationId}`);
   }
 }
-
