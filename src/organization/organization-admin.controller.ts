@@ -30,7 +30,6 @@ import type { OrganizationStatus } from '@prisma/client';
 
 @Controller('admin/organizations')
 @Auth(AuthType.Bearer)
-@Roles('admin')
 export class OrganizationAdminController {
   constructor(private readonly organizationService: OrganizationService) {}
 
@@ -39,13 +38,13 @@ export class OrganizationAdminController {
   // ========================
 
   @Get()
-  @Permissions('organizations:view')
+  // @Permissions('organizations:read')
   async getAllOrganizations(@Query() filterDto: OrganizationFilterDto) {
     return this.organizationService.getOrganizations(filterDto);
   }
 
   @Get('stats')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getApprovalStats() {
     return this.organizationService.getApprovalStats();
   }

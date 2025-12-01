@@ -31,6 +31,7 @@ import { QueueModule } from './core/config/queue/queue.module';
 import { CoreModule } from './modules/core.module';
 import { RbacModule } from './rbac/rbac.module';
 import { AttributesModule } from './attributes/attributes.module';
+import { CatalogModule } from './catalog/catalog.module';
 // TEMPORARILY COMMENTED OUT - Will re-enable after multi-vendor refactor
 // import { AdminModule } from './modules/admin.module';
 // import { PublicModule } from './modules/public.module';
@@ -53,6 +54,7 @@ import { AttributesModule } from './attributes/attributes.module';
 
     // Infrastructure Modules
     LoggerModule,
+    CatalogModule,
     SharedModule,
     PrismaModule,
     RedisCacheModule, // Redis-based caching (replaces in-memory cache)
@@ -67,6 +69,7 @@ import { AttributesModule } from './attributes/attributes.module';
     // AdminModule, // Orders, Cart, Inventory, Payments, Reports, Coupons, Shipping, Bundles // COMMENTED OUT
     // PublicModule, // Catalog, Reviews, Notifications // COMMENTED OUT
     // BlogModule, // Blog functionality // COMMENTED OUT
+
   ],
   controllers: [AppController],
   providers: [
@@ -97,5 +100,6 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TraceIdMiddleware, HttpLoggerMiddleware)
+      .forRoutes('*'); // Apply to all routes
   }
 }

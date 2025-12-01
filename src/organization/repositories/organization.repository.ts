@@ -41,7 +41,7 @@ export type OrganizationWithRelations = Organization & {
     timezone: string | null;
     language: string;
   } | null;
-  organizationAttributes?: {
+  attributes?: {
     id: number;
     key: string;
     valueType: string;
@@ -113,7 +113,7 @@ export class OrganizationRepository {
         language: true,
       },
     },
-    organizationAttributes: {
+    attributes: {
       include: {
         arrayItems: true,
       },

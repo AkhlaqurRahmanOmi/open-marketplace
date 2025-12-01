@@ -48,12 +48,12 @@ export class OrganizationController {
     @ActiveUser() user: ActiveUserData,
   ) {
     // Default role ID for organization owner - should be fetched from config/db
-    const ownerRoleId = 2; // Assuming role ID 2 is org owner/admin
+    const ownerRoleId = 1; // Assuming role ID 2 is org owner/admin
     return this.organizationService.createOrganization(dto, user.sub, ownerRoleId);
   }
 
   @Get()
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getOrganizations(@Query() filterDto: OrganizationFilterDto) {
     return this.organizationService.getOrganizations(filterDto);
   }
@@ -76,13 +76,13 @@ export class OrganizationController {
   }
 
   @Get('search')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async searchOrganizations(@Query('q') query: string) {
     return this.organizationService.searchOrganizations(query || '');
   }
 
   @Get('type/:type')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getOrganizationsByType(
     @Param('type') type: string,
     @Query('page') page?: string,
@@ -95,25 +95,25 @@ export class OrganizationController {
   }
 
   @Get(':id')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getOrganizationById(@Param('id', ParseIntPipe) id: number) {
     return this.organizationService.getOrganizationById(id);
   }
 
   @Get('slug/:slug')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getOrganizationBySlug(@Param('slug') slug: string) {
     return this.organizationService.getOrganizationBySlug(slug);
   }
 
   @Get(':id/stats')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getOrganizationStats(@Param('id', ParseIntPipe) id: number) {
     return this.organizationService.getOrganizationStats(id);
   }
 
   @Put(':id')
-  @Permissions('organizations:update')
+  @Permissions('organization:update')
   async updateOrganization(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrganizationDto,
@@ -122,7 +122,7 @@ export class OrganizationController {
   }
 
   @Delete(':id')
-  @Permissions('organizations:delete')
+  @Permissions('organization:delete')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteOrganization(@Param('id', ParseIntPipe) id: number) {
     await this.organizationService.deleteOrganization(id);
@@ -133,7 +133,7 @@ export class OrganizationController {
   // ========================
 
   @Get(':id/members')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getOrganizationMembers(
     @Param('id', ParseIntPipe) id: number,
     @Query('page') page?: string,
@@ -150,7 +150,7 @@ export class OrganizationController {
   }
 
   @Post(':id/members/invite')
-  @Permissions('organizations:invite')
+  @Permissions('organization:invite')
   @HttpCode(HttpStatus.CREATED)
   async inviteUser(
     @Param('id', ParseIntPipe) id: number,
@@ -161,7 +161,7 @@ export class OrganizationController {
   }
 
   @Post(':id/members/bulk-invite')
-  @Permissions('organizations:invite')
+  @Permissions('organization:invite')
   @HttpCode(HttpStatus.CREATED)
   async bulkInviteUsers(
     @Param('id', ParseIntPipe) id: number,
@@ -172,7 +172,7 @@ export class OrganizationController {
   }
 
   @Get(':id/members/:memberId')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getMemberById(
     @Param('id', ParseIntPipe) id: number,
     @Param('memberId', ParseIntPipe) memberId: number,
@@ -181,7 +181,7 @@ export class OrganizationController {
   }
 
   @Put(':id/members/:memberId')
-  @Permissions('organizations:update')
+  @Permissions('organization:update')
   async updateMember(
     @Param('id', ParseIntPipe) id: number,
     @Param('memberId', ParseIntPipe) memberId: number,
@@ -191,7 +191,7 @@ export class OrganizationController {
   }
 
   @Delete(':id/members/:memberId')
-  @Permissions('organizations:update')
+  @Permissions('organization:update')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeMember(
     @Param('id', ParseIntPipe) id: number,
@@ -224,7 +224,7 @@ export class OrganizationController {
   // ========================
 
   @Get(':id/documents')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getOrganizationDocuments(
     @Param('id', ParseIntPipe) id: number,
     @Query('status') status?: string,
@@ -237,7 +237,7 @@ export class OrganizationController {
   }
 
   @Post(':id/documents')
-  @Permissions('organizations:update')
+  @Permissions('organization:update')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.CREATED)
   async uploadDocument(
@@ -249,20 +249,20 @@ export class OrganizationController {
   }
 
   @Get(':id/documents/stats')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getDocumentStats(@Param('id', ParseIntPipe) id: number) {
     return this.organizationService.getDocumentStats(id);
   }
 
   @Delete('documents/:documentId')
-  @Permissions('organizations:update')
+  @Permissions('organization:update')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteDocument(@Param('documentId', ParseIntPipe) documentId: number) {
     await this.organizationService.deleteDocument(documentId);
   }
 
   @Put('documents/:documentId/replace')
-  @Permissions('organizations:update')
+  @Permissions('organization:update')
   @UseInterceptors(FileInterceptor('file'))
   async replaceDocument(
     @Param('documentId', ParseIntPipe) documentId: number,
@@ -276,13 +276,13 @@ export class OrganizationController {
   // ========================
 
   @Get(':id/settings')
-  @Permissions('organizations:view')
+  @Permissions('organization:read')
   async getSettings(@Param('id', ParseIntPipe) id: number) {
     return this.organizationService.getSettings(id);
   }
 
   @Put(':id/settings')
-  @Permissions('organizations:update')
+  @Permissions('organization:update')
   async updateSettings(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrganizationSettingsDto,

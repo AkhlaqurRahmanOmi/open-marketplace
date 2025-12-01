@@ -30,7 +30,6 @@ import { CacheTTL } from '../shared/decorators/cache-ttl.decorator';
  */
 @Controller('admin/orders')
 @Auth(AuthType.Bearer)
-@Roles('admin')
 export class OrdersAdminController {
   constructor(private readonly ordersService: OrdersService) {}
 

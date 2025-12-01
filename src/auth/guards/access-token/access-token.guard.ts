@@ -27,15 +27,27 @@ export class AccessTokenGuard implements CanActivate {
     const token = this.extractRequestFromHeader(request);
     // Validate the token
     if (!token) {
+      console.error('[AccessTokenGuard] No token found in Authorization header');
       throw new UnauthorizedException('Invalid credentials');
     }
     try {
+      console.log('[AccessTokenGuard] Verifying token with config:', {
+        secret: this.jwtConfiguration.secret?.substring(0, 10) + '...',
+        audience: this.jwtConfiguration.audience,
+        issuer: this.jwtConfiguration.issuer,
+      });
       const payload = await this.jwtService.verifyAsync(
         token,
-        this.jwtConfiguration,
+        {
+          secret: this.jwtConfiguration.secret,
+          audience: this.jwtConfiguration.audience,
+          issuer: this.jwtConfiguration.issuer,
+        },
       );
+      console.log('[AccessTokenGuard] Token verified successfully for user:', payload.sub);
       request[REQUEST_USER_KEY] = payload;
     } catch (error) {
+      console.error('[AccessTokenGuard] Token verification failed:', error.message);
       throw new UnauthorizedException();
     }
     return true;

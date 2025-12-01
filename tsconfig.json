@@ -30,7 +30,7 @@
     "src/blog/**",
     "src/bundles/**",
     "src/cart/**",
-    "src/catalog/**",
+//    "src/catalog/**",
     "src/cms/**",
     "src/coupons/**",
     "src/inventory/**",
