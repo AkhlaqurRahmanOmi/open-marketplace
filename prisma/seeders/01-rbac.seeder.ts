@@ -149,6 +149,16 @@ export async function seedRBAC() {
     { name: 'org:member:read', description: 'Read organization members', resource: 'member', action: 'read', scope: 'organization' },
     { name: 'org:member:update', description: 'Update organization members', resource: 'member', action: 'update', scope: 'organization' },
     { name: 'org:member:remove', description: 'Remove members from organization', resource: 'member', action: 'remove', scope: 'organization' },
+
+    // ===== Vendor Balance & Payout permissions =====
+    { name: 'vendor:balance:view', description: 'View vendor balance and transactions', resource: 'vendor_balance', action: 'view', scope: 'organization' },
+    { name: 'vendor:balance:request-payout', description: 'Request payout from vendor balance', resource: 'vendor_balance', action: 'request_payout', scope: 'organization' },
+    { name: 'vendor:payout:view', description: 'View vendor payout history', resource: 'vendor_payout', action: 'view', scope: 'organization' },
+
+    // Platform admin permissions for vendor management
+    { name: 'platform:vendor:balance:view', description: 'View all vendor balances', resource: 'vendor_balance', action: 'view', scope: 'platform' },
+    { name: 'platform:vendor:payout:approve', description: 'Approve vendor payout requests', resource: 'vendor_payout', action: 'approve', scope: 'platform' },
+    { name: 'platform:vendor:payout:process', description: 'Process vendor payouts', resource: 'vendor_payout', action: 'process', scope: 'platform' },
   ];
 
   console.log(`  Creating ${permissions.length} permissions...`);
@@ -207,6 +217,8 @@ export async function seedRBAC() {
         // RBAC
         'role.read', 'role.create', 'role.update', 'role.delete', 'role.manage',
         'permission.read', 'permission.create', 'permission.delete', 'permission.manage',
+        // Vendor Management
+        'platform:vendor:balance:view', 'platform:vendor:payout:approve', 'platform:vendor:payout:process',
       ],
     },
     {
@@ -260,6 +272,7 @@ export async function seedRBAC() {
         'org:inventory:create', 'org:inventory:read', 'org:inventory:update',
         'org:settings:read', 'org:settings:update',
         'org:member:invite', 'org:member:read', 'org:member:update', 'org:member:remove',
+        'vendor:balance:view', 'vendor:balance:request-payout', 'vendor:payout:view',
       ],
       organizationTypes: ['vendor', 'delivery_partner', 'financial_service'],
     },
@@ -272,6 +285,7 @@ export async function seedRBAC() {
         'org:order:read', 'org:order:update',
         'org:inventory:read', 'org:inventory:update',
         'org:member:read',
+        'vendor:balance:view', 'vendor:payout:view',
       ],
       organizationTypes: ['vendor', 'delivery_partner'],
     },

@@ -4,12 +4,14 @@ import { ShippingService } from './shipping.service';
 
 // Repositories
 import { ShippingMethodRepository } from './repositories';
+import { ShipmentRepository } from './repositories/shipment.repository';
 
 // Providers
 import {
   ShippingManagementProvider,
   ShippingRateCalculatorProvider,
 } from './providers';
+import { ShipmentManagementProvider } from './providers/shipment-management.provider';
 
 @Module({
   controllers: [ShippingController],
@@ -17,12 +19,14 @@ import {
     // Service facade
     ShippingService,
 
-    // Repository
+    // Repositories
     ShippingMethodRepository,
+    ShipmentRepository,
 
     // Business logic providers
     ShippingManagementProvider,
     ShippingRateCalculatorProvider,
+    ShipmentManagementProvider,
   ],
   exports: [
     ShippingService, // Export for Cart and Orders modules

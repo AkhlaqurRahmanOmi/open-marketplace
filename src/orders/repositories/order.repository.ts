@@ -477,4 +477,202 @@ export class OrderRepository extends BaseRepository<Order, number> {
       ORDER BY date ASC
     `;
   }
+
+  // ========================
+  // Phase 6: Multi-Vendor Order Queries
+  // ========================
+
+  /**
+   * Find orders that contain items from a specific organization
+   * Vendors only see orders containing their items
+   */
+  async findByOrganization(
+    organizationId: number,
+    filters: OrderFilterDto,
+  ): Promise<PaginatedResult<Order>> {
+    const { page = 1, limit = 10, status, search, startDate, endDate } = filters;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      orderItems: {
+        some: { organizationId }, // Only orders with this org's items
+      },
+    };
+
+    // Apply status filter
+    if (status) {
+      where.currentStatus = status;
+    }
+
+    // Apply search filter
+    if (search) {
+      where.OR = [
+        { externalRef: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    // Apply date range filter
+    if (startDate || endDate) {
+      where.placedAt = {};
+      if (startDate) where.placedAt.gte = new Date(startDate);
+      if (endDate) where.placedAt.lte = new Date(endDate);
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          orderItems: {
+            where: { organizationId }, // Only this org's items
+            include: {
+              variant: {
+                include: {
+                  product: true,
+                },
+              },
+            },
+          },
+          shippingAddress: true,
+          orderStatusHistories: {
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: limit,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Find a single order by ID, filtered to show only items from specific organization
+   */
+  async findByIdForOrganization(
+    orderId: number,
+    organizationId: number,
+  ): Promise<Order | null> {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        orderItems: {
+          some: { organizationId },
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        orderItems: {
+          where: { organizationId }, // Only this org's items
+          include: {
+            variant: {
+              include: {
+                product: true,
+              },
+            },
+            fulfillmentItems: {
+              include: {
+                shipment: true,
+              },
+            },
+          },
+        },
+        shippingAddress: true,
+        billingAddress: true,
+        shipments: {
+          where: { organizationId }, // Only this org's shipments
+        },
+        orderStatusHistories: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    return order;
+  }
+
+  /**
+   * Get order items summary for an organization
+   */
+  async getOrganizationOrderStats(
+    organizationId: number,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    const where: any = {
+      organizationId,
+    };
+
+    if (startDate || endDate) {
+      where.order = {
+        placedAt: {},
+      };
+      if (startDate) where.order.placedAt.gte = startDate;
+      if (endDate) where.order.placedAt.lte = endDate;
+    }
+
+    const stats = await this.prisma.orderItem.aggregate({
+      where,
+      _sum: {
+        lineTotal: true,
+        organizationAmount: true,
+        platformFeeAmount: true,
+      },
+      _count: true,
+    });
+
+    return {
+      totalItems: stats._count,
+      totalRevenue: stats._sum.lineTotal || 0,
+      vendorEarnings: stats._sum.organizationAmount || 0,
+      platformFees: stats._sum.platformFeeAmount || 0,
+    };
+  }
+
+  /**
+   * Group items by organization for order splitting logic
+   */
+  groupItemsByOrganization(orderItems: any[]): Map<number, any[]> {
+    const grouped = new Map<number, any[]>();
+
+    for (const item of orderItems) {
+      const orgId = item.variant?.product?.organizationId || item.organizationId;
+      if (!orgId) continue;
+
+      if (!grouped.has(orgId)) {
+        grouped.set(orgId, []);
+      }
+      grouped.get(orgId)!.push(item);
+    }
+
+    return grouped;
+  }
 }

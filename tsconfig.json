@@ -35,7 +35,7 @@
     "src/coupons/**",
     "src/inventory/**",
     "src/notifications/**",
-    "src/orders/**",
+//    "src/orders/**",
     "src/payments/**",
     "src/reports/**",
     "src/reviews/**",
