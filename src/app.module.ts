@@ -22,6 +22,9 @@ import { GlobalResponseInterceptor } from './shared/interceptors/global-response
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TraceIdMiddleware } from './shared/middleware/trace-id.middleware';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 
 // Infrastructure Modules
 import { RedisCacheModule } from './core/config/cache/redis-cache.module';
@@ -60,6 +63,20 @@ import { PaymentsModule } from './payments/payments.module';
     JwtModule.registerAsync(jwtConfig.asProvider()),
     PaymentsModule, // Payment processing (shared)
     // TasksModule, // TODO: Re-enable scheduled tasks
+
+    // BullBoard - Queue monitoring dashboard
+    BullBoardModule.forRoot({
+      route: '/admin/queues',
+      adapter: ExpressAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: 'notification-email',
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: 'notification-realtime',
+      adapter: BullMQAdapter,
+    }),
 
     // Business Modules (Multi-Vendor Architecture)
     CoreModule,      // Auth, User, RBAC (shared foundation)

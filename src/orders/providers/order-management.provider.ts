@@ -78,11 +78,32 @@ export class OrderManagementProvider {
       let subtotal = 0;
       let totalWeight = 0;
       const variants = new Map();
+      const organizationTypes = new Map();
 
       for (const item of createOrderDto.items) {
         const variant = await tx.variant.findUnique({
           where: { id: item.variantId },
-          include: { product: true },
+          include: {
+            product: {
+              include: {
+                productCategories: {
+                  take: 1, // Get primary category
+                  include: {
+                    category: true,
+                  },
+                },
+                organization: {
+                  select: {
+                    id: true,
+                    name: true,
+                    feeType: true,
+                    feeAmount: true,
+                    type: true,
+                  },
+                },
+              },
+            },
+          },
         });
         if (!variant) {
           throw new NotFoundException(`Variant ${item.variantId} not found`);
@@ -90,6 +111,22 @@ export class OrderManagementProvider {
         variants.set(item.variantId, variant);
         subtotal += variant.price * item.quantity;
         totalWeight += (variant.weight || 0) * item.quantity;
+
+        // Cache organization type for commission calculation
+        const orgType = variant.product.organization.type;
+        if (!organizationTypes.has(orgType)) {
+          const orgTypeData = await tx.organizationType.findFirst({
+            where: { code: orgType },
+            select: {
+              code: true,
+              defaultFeeType: true,
+              defaultFeeAmount: true,
+            },
+          });
+          if (orgTypeData) {
+            organizationTypes.set(orgType, orgTypeData);
+          }
+        }
       }
 
       // Calculate shipping cost
@@ -135,14 +172,38 @@ export class OrderManagementProvider {
         // Get organizationId from the product
         const organizationId = variant.product.organizationId;
 
-        // Calculate commission for this item
-        const commission = await this.commissionCalculator.calculateCommission(
+        // Prepare commission hierarchy data (zero additional queries - data already loaded!)
+        const primaryCategory = variant.product.productCategories?.[0]?.category;
+        const orgType = organizationTypes.get(variant.product.organization.type);
+
+        const commissionData = {
+          product: {
+            feeType: variant.product.feeType,
+            feeAmount: variant.product.feeAmount,
+          },
+          category: primaryCategory ? {
+            feeType: primaryCategory.feeType,
+            feeAmount: primaryCategory.feeAmount,
+          } : undefined,
+          organization: {
+            feeType: variant.product.organization.feeType,
+            feeAmount: variant.product.organization.feeAmount,
+            type: variant.product.organization.type,
+          },
+          organizationType: orgType ? {
+            defaultFeeType: orgType.defaultFeeType,
+            defaultFeeAmount: orgType.defaultFeeAmount,
+          } : undefined,
+        };
+
+        // Calculate commission using OPTIMIZED method (no database queries)
+        const commission = this.commissionCalculator.calculateCommissionFromData(
           lineTotal,
-          organizationId,
+          commissionData,
         );
 
         this.logger.debug(
-          `Order ${newOrder.id} - Item commission: ${JSON.stringify(commission)}`,
+          `Order ${newOrder.id} - Item commission (source: ${commission.commissionSource}): ${JSON.stringify(commission)}`,
         );
 
         const orderItem = await tx.orderItem.create({
