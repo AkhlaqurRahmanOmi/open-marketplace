@@ -66,7 +66,7 @@ export class ShipmentRepository extends BaseRepository<Shipment, number> {
     });
   }
 
-  async create(data: Prisma.ShipmentCreateInput): Promise<Shipment> {
+  async create(data: any): Promise<Shipment> {
     return this.prisma.shipment.create({
       data,
       include: this.baseInclude,

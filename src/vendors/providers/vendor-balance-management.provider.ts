@@ -38,6 +38,21 @@ export interface RefundFundsDto {
   description?: string;
 }
 
+export interface DebitForRefundDto {
+  organizationId: number;
+  amount: number;
+  refundId: number;
+  orderId: number;
+  description: string;
+}
+
+export interface CreditFundsDto {
+  organizationId: number;
+  amount: number;
+  orderId: number;
+  description: string;
+}
+
 @Injectable()
 export class VendorBalanceManagementProvider {
   private readonly logger = new Logger(VendorBalanceManagementProvider.name);
@@ -199,6 +214,93 @@ export class VendorBalanceManagementProvider {
 
       this.logger.log(
         `Refunded ${dto.amount} for organization ${dto.organizationId} (Order #${dto.orderId})`,
+      );
+
+      return updatedBalance;
+    });
+  }
+
+  /**
+   * Debit funds for refund (Phase 9: Post-delivery refunds)
+   * Deducts from available balance when customer requests refund
+   */
+  async debitForRefund(dto: DebitForRefundDto): Promise<VendorBalance> {
+    const balance = await this.getOrCreateBalance(dto.organizationId);
+
+    // Check if available balance is sufficient
+    if (balance.availableBalance < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient available balance for refund. Available: ${balance.availableBalance}, Required: ${dto.amount}`,
+      );
+    }
+
+    return this.unitOfWork.transaction(async (tx) => {
+      // Deduct from available balance and total earnings
+      const updatedBalance = await tx.vendorBalance.update({
+        where: { id: balance.id },
+        data: {
+          availableBalance: { decrement: dto.amount },
+          totalEarnings: { decrement: dto.amount },
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create transaction record
+      await tx.vendorBalanceTransaction.create({
+        data: {
+          balanceId: balance.id,
+          type: BalanceTransactionType.REFUND,
+          amount: dto.amount,
+          description: dto.description,
+          referenceType: 'refund',
+          referenceId: dto.refundId,
+          balanceBefore: balance.availableBalance,
+          balanceAfter: balance.availableBalance - dto.amount,
+        },
+      });
+
+      this.logger.log(
+        `Debited ${dto.amount} from organization ${dto.organizationId} for refund #${dto.refundId}`,
+      );
+
+      return updatedBalance;
+    });
+  }
+
+  /**
+   * Credit funds (Phase 9: Reverse refund when rejected/cancelled)
+   * Adds funds back to available balance
+   */
+  async creditFunds(dto: CreditFundsDto): Promise<VendorBalance> {
+    const balance = await this.getOrCreateBalance(dto.organizationId);
+
+    return this.unitOfWork.transaction(async (tx) => {
+      // Add to available balance and total earnings
+      const updatedBalance = await tx.vendorBalance.update({
+        where: { id: balance.id },
+        data: {
+          availableBalance: { increment: dto.amount },
+          totalEarnings: { increment: dto.amount },
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create transaction record
+      await tx.vendorBalanceTransaction.create({
+        data: {
+          balanceId: balance.id,
+          type: BalanceTransactionType.CREDIT,
+          amount: dto.amount,
+          description: dto.description,
+          referenceType: 'order',
+          referenceId: dto.orderId,
+          balanceBefore: balance.availableBalance,
+          balanceAfter: balance.availableBalance + dto.amount,
+        },
+      });
+
+      this.logger.log(
+        `Credited ${dto.amount} to organization ${dto.organizationId} (Order #${dto.orderId})`,
       );
 
       return updatedBalance;

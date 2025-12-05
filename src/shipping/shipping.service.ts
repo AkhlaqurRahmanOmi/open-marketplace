@@ -15,7 +15,7 @@ import {
   ShipmentFilterDto,
 } from './dtos';
 import { PaginatedResult } from '../shared/types';
-import { ShippingCalculationResult } from './providers/shipping-rate-calculator.provider';
+import { ShippingCalculationResult } from './providers';
 
 @Injectable()
 export class ShippingService {

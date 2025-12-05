@@ -45,7 +45,9 @@ enum PaymentStatus {
 enum RefundStatus {
   requested
   approved
-  processed
+  rejected
+  completed
+  cancelled
   failed
 }
 

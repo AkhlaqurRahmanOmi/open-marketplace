@@ -2,19 +2,31 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Inject,
 } from '@nestjs/common';
 import { Product } from '@prisma/client';
 import { ProductRepository } from '../repositories';
 import { CreateProductDto, UpdateProductDto, ProductFilterDto } from '../dtos';
 import { PaginatedResult, QueryOptions } from '../../shared/types';
 import { PrismaService } from '../../core/config/prisma/prisma.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import {
+  CacheResult,
+  InvalidateCache,
+} from '../../shared/decorators/cache-result.decorator';
 
 @Injectable()
 export class ProductManagementProvider {
+  private cacheManager: Cache;
+
   constructor(
     private readonly productRepository: ProductRepository,
     private readonly prisma: PrismaService,
-  ) {}
+    @Inject(CACHE_MANAGER) cacheManager: Cache,
+  ) {
+    this.cacheManager = cacheManager;
+  }
 
   /**
    * Create a new product (for vendor - organization-scoped)
@@ -65,6 +77,7 @@ export class ProductManagementProvider {
 
   /**
    * Update an existing product (for vendor - organization-scoped)
+   * Invalidates cache after update
    */
   async updateProductForOrganization(
     id: number,
@@ -93,7 +106,12 @@ export class ProductManagementProvider {
       }
     }
 
-    return this.productRepository.update(id, updateProductDto);
+    const updatedProduct = await this.productRepository.update(id, updateProductDto);
+
+    // Invalidate caches
+    await this.invalidateProductCache(id, organizationId, product.seoSlug || undefined);
+
+    return updatedProduct;
   }
 
   /**
@@ -125,6 +143,7 @@ export class ProductManagementProvider {
 
   /**
    * Soft delete a product (for vendor - organization-scoped)
+   * Invalidates cache after deletion
    */
   async deleteProductForOrganization(
     id: number,
@@ -141,6 +160,9 @@ export class ProductManagementProvider {
     }
 
     await this.productRepository.delete(id);
+
+    // Invalidate caches
+    await this.invalidateProductCache(id, organizationId, product.seoSlug || undefined);
   }
 
   /**
@@ -157,7 +179,16 @@ export class ProductManagementProvider {
 
   /**
    * Get a single product by ID (for vendor - organization-scoped)
+   * Cached for 2 minutes with org-specific key using RedisJSON
    */
+  @CacheResult({
+    ttl: 120000, // 2 minutes
+    keyPrefix: 'product-vendor',
+    includeOrgId: true, // First param is orgId? No, second param is!
+    keyGenerator: (id: number, organizationId: number) =>
+      `product-vendor:org:${organizationId}:product:${id}`,
+    dataStructure: 'json', // Use RedisJSON for best performance
+  })
   async getProductByIdForOrganization(
     id: number,
     organizationId: number,
@@ -177,8 +208,16 @@ export class ProductManagementProvider {
 
   /**
    * Get a single product by ID (public - for catalog viewing)
+   * Cached for 5 minutes using RedisJSON
    */
+  @CacheResult({
+    ttl: 300000, // 5 minutes
+    keyPrefix: 'product-public',
+    keyGenerator: (id: number) => `product-public:${id}`,
+    dataStructure: 'json', // Use RedisJSON for best performance
+  })
   async getProductById(id: number): Promise<Product> {
+    console.log('[ProductManagementProvider] getProductById called, cacheManager:', !!this.cacheManager);
     const product = await this.productRepository.findById(id);
     if (!product || product.deletedAt) {
       throw new NotFoundException(`Product with ID ${id} not found`);
@@ -189,7 +228,14 @@ export class ProductManagementProvider {
 
   /**
    * Get a single product by slug
+   * Cached for 5 minutes using RedisJSON
    */
+  @CacheResult({
+    ttl: 300000, // 5 minutes
+    keyPrefix: 'product-public-slug',
+    keyGenerator: (slug: string) => `product-public-slug:${slug}`,
+    dataStructure: 'json', // Use RedisJSON for best performance
+  })
   async getProductBySlug(slug: string): Promise<Product> {
     const product = await this.productRepository.findBySlug(slug);
     if (!product || product.deletedAt) {
@@ -201,7 +247,16 @@ export class ProductManagementProvider {
 
   /**
    * Get all products with filtering, sorting, and pagination (for vendor - organization-scoped)
+   * Using string cache for arrays (works well for lists)
    */
+
+  @CacheResult({
+    ttl: 120000, // 2 minutes
+    keyPrefix: 'products-list',
+    keyGenerator: (filterDto: ProductFilterDto) =>
+      `products-list:${JSON.stringify(filterDto)}`,
+    dataStructure: 'string', // Arrays work fine with string serialization
+  })
   async getAllProductsForOrganization(
     filterDto: ProductFilterDto,
     organizationId: number,
@@ -245,7 +300,15 @@ export class ProductManagementProvider {
 
   /**
    * Get all products with filtering, sorting, and pagination (public - for catalog viewing)
+   * Cached for 3 minutes using string (arrays work well with string)
    */
+  @CacheResult({
+    ttl: 600000, // 10 minutes
+    keyPrefix: 'products-public-list',
+    keyGenerator: (filterDto: ProductFilterDto) =>
+      `products-public-list:${JSON.stringify(filterDto)}`,
+    dataStructure: 'json', // Arrays work fine with string serialization
+  })
   async getAllProducts(filterDto: ProductFilterDto) {
     // Validate price range
     if (filterDto.minPrice && filterDto.maxPrice && filterDto.minPrice > filterDto.maxPrice) {
@@ -455,5 +518,33 @@ export class ProductManagementProvider {
     async searchProducts(query: string, filters: ProductFilterDto) {
         return this.productRepository.searchProducts(query, filters);
     }
+
+  /**
+   * Helper method to invalidate product caches
+   * Called when product is updated or deleted
+   */
+  private async invalidateProductCache(
+    productId: number,
+    organizationId: number,
+    productSlug?: string,
+  ): Promise<void> {
+    try {
+      // Invalidate public product cache
+      await this.cacheManager.del(`product-public:${productId}`);
+
+      // Invalidate vendor product cache
+      await this.cacheManager.del(
+        `product-vendor:org:${organizationId}:product:${productId}`,
+      );
+
+      // Invalidate slug cache if provided
+      if (productSlug) {
+        await this.cacheManager.del(`product-public-slug:${productSlug}`);
+      }
+    } catch (error) {
+      // Log error but don't throw - cache invalidation failure shouldn't break updates
+      console.error('Failed to invalidate product cache:', error);
+    }
+  }
 
 }

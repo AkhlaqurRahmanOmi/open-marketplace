@@ -166,6 +166,7 @@ export class OrderManagementProvider {
           organizationId: organizationId,
           amount: commission.organizationAmount,
           orderId: newOrder.id,
+          description: `Order #${newOrder.externalRef} - Vendor commission`,
         });
 
         this.logger.log(
