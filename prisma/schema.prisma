@@ -1525,6 +1525,25 @@ model NotificationPreference {
   @@map("NotificationPreference")
 }
 
+model NotificationConfig {
+  id          Int                   @id @default(autoincrement())
+  event       String                @unique @db.VarChar(100)
+  channels    NotificationChannel[]
+  template    String                @db.VarChar(100)
+  priority    String                @default("NORMAL") @db.VarChar(20) // HIGH, NORMAL, LOW
+  enabled     Boolean               @default(true)
+  retries     Int                   @default(3)
+  conditions  Json? // Optional conditions for sending (e.g., {"orderTotal": {"min": 100}})
+  metadata    Json? // Additional configuration (e.g., batching, scheduling)
+  description String?               @db.VarChar(500)
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @default(now()) @map("updated_at")
+
+  @@index([event])
+  @@index([enabled])
+  @@map("NotificationConfig")
+}
+
 //extra table which is out of the box from e-commerce concept
 model BlogPost {
   id          Int            @id @default(autoincrement())

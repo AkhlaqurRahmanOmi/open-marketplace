@@ -101,7 +101,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           host,
           port,
           db,
-          maxRetriesPerRequest: configService.get<number>('redis.maxRetriesPerRequest'),
+          maxRetriesPerRequest: null, // BullMQ requires this to be null
           connectTimeout: configService.get<number>('redis.connectTimeout'),
         };
 
