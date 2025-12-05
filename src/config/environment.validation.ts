@@ -54,7 +54,7 @@ export default Joi.object({
   REDIS_HOST: Joi.string().default('localhost'),
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().optional().allow(''),
-  REDIS_DB: Joi.number().min(0).max(15).default(0),
+  REDIS_DB: Joi.string().min(0).max(15).default(0),
   REDIS_TTL: Joi.number().default(300), // 5 minutes in seconds
   REDIS_CONNECT_TIMEOUT: Joi.number().default(10000),
   REDIS_MAX_RETRIES: Joi.number().default(3),

@@ -7,59 +7,49 @@ import { CouponsModule } from '../coupons/coupons.module';
 import { ShippingModule } from '../shipping/shipping.module';
 import { BundlesModule } from '../bundles/bundles.module';
 import { ReportsModule } from '../reports/reports.module';
-import { CmsModule } from '../cms/cms.module';
 
 /**
- * AdminModule groups all admin-focused business modules
- * These modules contain endpoints primarily used by administrators
- * to manage the e-commerce platform:
+ * AdminModule groups admin operation modules (legacy)
  *
- * - Orders: Order management and fulfillment
- * - Cart: Cart administration and abandoned cart tracking
- * - Inventory: Stock management across locations
- * - Payments: Payment processing and reconciliation
- * - Coupons: Discount and promotion management
- * - Shipping: Shipping methods and rates
- * - Bundles: Product bundle management
- * - Reports: Analytics and business intelligence
- * - CMS: Content Management System for homepage sections
+ * NOTE: This module is being replaced by more specific modules:
+ * - PlatformModule: For super admin features
+ * - VendorModule: For vendor dashboard features
+ * - PublicModule: For customer-facing features
  *
- * Note: Access control is handled by guards (@Roles, @Permissions)
- * in individual controllers, not at the module level.
+ * Keeping this for backward compatibility during migration.
+ *
+ * Features:
+ * - Order management across all vendors
+ * - Cart administration
+ * - Inventory management
+ * - Payment processing
+ * - Coupon management
+ * - Shipping configuration
+ * - Bundle management
+ * - Analytics & reports
+ *
+ * Used by: Admin controllers with /admin/* routes
  */
 @Module({
-  // imports: [
-  //   // Order Management
-  //   OrdersModule,
-  //   CartModule,
-  //
-  //   // Inventory & Products
-  //   InventoryModule,
-  //   BundlesModule,
-  //
-  //   // Payments & Discounts
-  //   PaymentsModule,
-  //   CouponsModule,
-  //
-  //   // Fulfillment
-  //   ShippingModule,
-  //
-  //   // Analytics
-  //   ReportsModule,
-  //
-  //   // Content Management
-  //   CmsModule,
-  // ],
-  // exports: [
-  //   OrdersModule,
-  //   CartModule,
-  //   InventoryModule,
-  //   BundlesModule,
-  //   PaymentsModule,
-  //   CouponsModule,
-  //   ShippingModule,
-  //   ReportsModule,
-  //   CmsModule,
-  // ],
+  imports: [
+    OrdersModule,
+    CartModule,
+    InventoryModule,
+    PaymentsModule,
+    CouponsModule,
+    ShippingModule,
+    BundlesModule,
+    ReportsModule,
+  ],
+  exports: [
+    OrdersModule,
+    CartModule,
+    InventoryModule,
+    PaymentsModule,
+    CouponsModule,
+    ShippingModule,
+    BundlesModule,
+    ReportsModule,
+  ],
 })
 export class AdminModule {}

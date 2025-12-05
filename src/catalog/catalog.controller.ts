@@ -45,8 +45,8 @@ export class CatalogController {
 
   @Get('products')
   @Auth(AuthType.None)
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(300000)
+  // @UseInterceptors(CacheInterceptor)
+  // @CacheTTL(300000)
   @HttpCode(HttpStatus.OK)
   @RelatedLinks({
     product: {
@@ -75,8 +75,8 @@ export class CatalogController {
     }
 
   @Get('products/:id')
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(600000)
+  // @UseInterceptors(CacheInterceptor)
+  // @CacheTTL(600000)
   @Auth(AuthType.None)
   @HttpCode(HttpStatus.OK)
   @RelatedLinks({

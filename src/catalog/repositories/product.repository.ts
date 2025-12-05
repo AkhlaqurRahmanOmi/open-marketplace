@@ -48,6 +48,43 @@ export class ProductRepository extends BaseRepository<Product, number> {
     });
   }
 
+  /**
+   * Find product by ID scoped to organization (for vendor management)
+   */
+  async findByIdForOrganization(id: number, organizationId: number): Promise<Product | null> {
+    return this.prisma.product.findFirst({
+      where: {
+        id,
+        organizationId,
+        deletedAt: null,
+      },
+      include: {
+        productImages: true,
+        variants: {
+          include: {
+            variantInventories: true,
+          },
+        },
+        productCategories: {
+          include: {
+            category: {
+              include: {
+                parent: true,
+              },
+            },
+          },
+        },
+        productOptions: {
+          include: {
+            optionValues: true,
+          },
+        },
+        productAttributes: true,
+        reviews: true,
+      },
+    });
+  }
+
   async findAll(): Promise<Product[]> {
     return this.prisma.product.findMany({
       where: { deletedAt: null },
@@ -62,6 +99,30 @@ export class ProductRepository extends BaseRepository<Product, number> {
         },
         reviews: true
       },
+    });
+  }
+
+  /**
+   * Find all products scoped to organization (for vendor management)
+   */
+  async findAllForOrganization(organizationId: number): Promise<Product[]> {
+    return this.prisma.product.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+      },
+      include: {
+        productImages: {
+          where: { isMain: true },
+          take: 1,
+        },
+        variants: {
+          take: 1,
+          orderBy: { price: 'asc' },
+        },
+        reviews: true,
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -209,6 +270,124 @@ export class ProductRepository extends BaseRepository<Product, number> {
     };
   }
 
+  /**
+   * Find products with filters scoped to organization (for vendor management)
+   */
+  async findWithFiltersForOrganization(
+    options: QueryOptions,
+    organizationId: number,
+  ): Promise<PaginatedResult<Product>> {
+    const {
+      filters = {},
+      sort,
+      pagination = { page: 1, limit: 10 },
+      search,
+    } = options;
+
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    // Build base where clause with organization scope
+    const where: any = {
+      organizationId,
+      deletedAt: null,
+      ...filters,
+    };
+
+    // Add search functionality
+    if (search?.query) {
+      where.OR = search.fields.map((field) => ({
+        [field]: {
+          contains: search.query,
+          mode: 'insensitive',
+        },
+      }));
+    }
+
+    // Handle price filtering
+    if (filters.minPrice || filters.maxPrice) {
+      const priceConditions: any = {};
+      if (filters.minPrice) priceConditions.gte = filters.minPrice;
+      if (filters.maxPrice) priceConditions.lte = filters.maxPrice;
+
+      where.variants = {
+        some: {
+          isActive: true,
+          price: priceConditions,
+        },
+      };
+
+      delete where.minPrice;
+      delete where.maxPrice;
+    }
+
+    // Handle rating filtering
+    if (filters.minRating) {
+      delete where.minRating;
+    }
+
+    const whereForCount = { ...where };
+
+    // Execute queries in parallel for better performance
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: sort ? { [sort.field]: sort.order } : { createdAt: 'desc' },
+        include: {
+          productImages: {
+            where: { isMain: true },
+            take: 1,
+          },
+          variants: {
+            where: { isActive: true },
+            orderBy: { price: 'asc' },
+          },
+          productCategories: {
+            include: {
+              category: {
+                include: {
+                  parent: true,
+                },
+              },
+            },
+          },
+          reviews: {
+            select: {
+              rating: true,
+            },
+          },
+        },
+      }),
+      this.prisma.product.count({ where: whereForCount }),
+    ]);
+
+    // Filter by rating if specified
+    let filteredProducts = products;
+    if (filters.minRating) {
+      filteredProducts = products.filter((product) => {
+        if (product.reviews.length === 0) return true;
+        const avgRating =
+          product.reviews.reduce((sum, review) => sum + review.rating, 0) /
+          product.reviews.length;
+        return avgRating >= filters.minRating;
+      });
+    }
+
+    return {
+      data: filteredProducts,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: limit,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      },
+    };
+  }
+
 
 
 
@@ -235,6 +414,41 @@ export class ProductRepository extends BaseRepository<Product, number> {
           orderBy: { price: 'asc' },
         },
         reviews: true
+      },
+    });
+  }
+
+  /**
+   * Search products scoped to organization (for vendor management)
+   */
+  async searchForOrganization(
+    query: string,
+    fields: string[],
+    organizationId: number,
+  ): Promise<Product[]> {
+    const where: any = {
+      organizationId,
+      deletedAt: null,
+      OR: fields.map((field) => ({
+        [field]: {
+          contains: query,
+          mode: 'insensitive',
+        },
+      })),
+    };
+
+    return this.prisma.product.findMany({
+      where,
+      include: {
+        productImages: {
+          where: { isMain: true },
+          take: 1,
+        },
+        variants: {
+          take: 1,
+          orderBy: { price: 'asc' },
+        },
+        reviews: true,
       },
     });
   }

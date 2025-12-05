@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Organization, OrganizationStatus } from '@prisma/client';
-import { OrganizationRepository } from '../repositories/organization.repository';
+import { OrganizationRepository } from '../repositories';
 import {
   ApproveOrganizationDto,
   RejectOrganizationDto,

@@ -6,12 +6,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Organization } from '@prisma/client';
-import { OrganizationRepository, OrganizationWithRelations } from '../repositories/organization.repository';
-import { OrganizationSettingsRepository } from '../repositories/organization-settings.repository';
-import { OrganizationUserRepository } from '../repositories/organization-user.repository';
+import { OrganizationRepository, OrganizationWithRelations } from '../repositories';
+import { OrganizationSettingsRepository } from '../repositories';
+import { OrganizationUserRepository } from '../repositories';
 import { CreateOrganizationDto, UpdateOrganizationDto, OrganizationFilterDto } from '../dtos';
 import { PaginatedResult } from 'src/shared/types';
 import { UnitOfWorkService } from 'src/shared/services/unit-of-work.service';
+import { AttributesService } from 'src/attributes/attributes.service';
 
 @Injectable()
 export class OrganizationManagementProvider {
@@ -22,6 +23,7 @@ export class OrganizationManagementProvider {
     private readonly settingsRepo: OrganizationSettingsRepository,
     private readonly orgUserRepo: OrganizationUserRepository,
     private readonly unitOfWork: UnitOfWorkService,
+    private readonly attributesService: AttributesService,
   ) {}
 
   async createOrganization(
@@ -81,6 +83,11 @@ export class OrganizationManagementProvider {
           joinedAt: new Date(),
         },
       });
+
+      // Handle dynamic attributes
+      if (dto.attributes) {
+        await this.attributesService.setAttributes(organization.id, dto.attributes);
+      }
 
       this.logger.log(`Organization created: ${organization.id} - ${organization.name}`);
 
@@ -142,6 +149,11 @@ export class OrganizationManagementProvider {
       if (await this.organizationRepo.emailExists(dto.email, id)) {
         throw new ConflictException(`Email "${dto.email}" is already in use`);
       }
+    }
+
+    // Handle dynamic attributes
+    if (dto.attributes) {
+      await this.attributesService.setAttributes(id, dto.attributes);
     }
 
     return this.organizationRepo.update(id, dto);

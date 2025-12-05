@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Order, OrderStatus } from '@prisma/client';
 import { OrderRepository } from '../repositories/order.repository';
@@ -12,16 +13,22 @@ import { InventoryService } from '../../inventory/inventory.service';
 import { BundlesService } from '../../bundles/bundles.service';
 import { UnitOfWorkService } from '../../shared/services/unit-of-work.service';
 import { ShippingService } from '../../shipping/shipping.service';
+import { CommissionCalculatorProvider } from './commission-calculator.provider';
+import { VendorBalanceManagementProvider } from '../../vendors/providers/vendor-balance-management.provider';
 
 @Injectable()
 export class OrderManagementProvider {
+  private readonly logger = new Logger(OrderManagementProvider.name);
+
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
     private readonly bundles: BundlesService,
     private readonly unitOfWork: UnitOfWorkService,
-    private readonly shippingService: ShippingService
+    private readonly shippingService: ShippingService,
+    private readonly commissionCalculator: CommissionCalculatorProvider,
+    private readonly vendorBalanceManagement: VendorBalanceManagementProvider,
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -120,25 +127,51 @@ export class OrderManagementProvider {
         },
       });
 
-      // Create order items
-      // TODO: Get organizationId and calculate organizationAmount after multi-vendor refactor
+      // Create order items with commission calculation (Phase 6: Multi-vendor)
       for (const item of createOrderDto.items) {
         const variant = variants.get(item.variantId);
+        const lineTotal = variant.price * item.quantity;
 
-        await tx.orderItem.create({
+        // Get organizationId from the product
+        const organizationId = variant.product.organizationId;
+
+        // Calculate commission for this item
+        const commission = await this.commissionCalculator.calculateCommission(
+          lineTotal,
+          organizationId,
+        );
+
+        this.logger.debug(
+          `Order ${newOrder.id} - Item commission: ${JSON.stringify(commission)}`,
+        );
+
+        const orderItem = await tx.orderItem.create({
           data: {
             orderId: newOrder.id,
+            organizationId: organizationId,
             variantId: item.variantId,
             bundleId: item.bundleId,
             quantity: item.quantity,
             unitPrice: variant.price,
-            lineTotal: variant.price * item.quantity,
+            lineTotal: lineTotal,
+            organizationAmount: commission.organizationAmount,
+            platformFeeAmount: commission.platformFeeAmount,
             productNameSnapshot: variant.product?.name,
             variantSkuSnapshot: variant.sku,
-            organizationId: 0, // PLACEHOLDER - Replace with actual organizationId from context
-            organizationAmount: variant.price * item.quantity, // PLACEHOLDER - Calculate based on commission
           },
         });
+
+        // Phase 6: Credit vendor balance (pending until order is delivered)
+        await this.vendorBalanceManagement.creditFunds({
+          organizationId: organizationId,
+          amount: commission.organizationAmount,
+          orderId: newOrder.id,
+          description: `Order #${newOrder.externalRef} - Vendor commission`,
+        });
+
+        this.logger.log(
+          `Credited ${commission.organizationAmount} to organization ${organizationId} for order ${newOrder.id}`,
+        );
       }
 
       return newOrder;
@@ -192,28 +225,28 @@ export class OrderManagementProvider {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
 
-    // If status is changing to 'shipped', fulfill the reserved inventory
-    if (updateStatusDto.status === OrderStatus.shipped && order.currentStatus !== OrderStatus.shipped) {
-      // Get order items with variant inventory info
-      const orderWithItems = await this.prisma.order.findUnique({
-        where: { id },
-        include: {
-          orderItems: {
-            include: {
-              variant: {
-                include: {
-                  variantInventories: true,
-                },
+    // Get order items for processing
+    const orderWithItems = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        orderItems: {
+          include: {
+            variant: {
+              include: {
+                variantInventories: true,
               },
             },
           },
         },
-      });
+      },
+    });
 
-      if (!orderWithItems) {
-        throw new NotFoundException(`Order with ID ${id} not found`);
-      }
+    if (!orderWithItems) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
 
+    // If status is changing to 'shipped', fulfill the reserved inventory
+    if (updateStatusDto.status === OrderStatus.shipped && order.currentStatus !== OrderStatus.shipped) {
       // Fulfill inventory for each order item
       for (const item of orderWithItems.orderItems) {
         if (!item.variantId) continue;
@@ -244,6 +277,33 @@ export class OrderManagementProvider {
       }
     }
 
+    // Phase 7: If status is changing to 'delivered', release vendor funds (pending → available)
+    if (updateStatusDto.status === OrderStatus.delivered && order.currentStatus !== OrderStatus.delivered) {
+      this.logger.log(`Order ${id} delivered - releasing vendor funds`);
+
+      for (const item of orderWithItems.orderItems) {
+        if (!item.organizationId || !item.organizationAmount) continue;
+
+        try {
+          await this.vendorBalanceManagement.releaseFunds({
+            organizationId: item.organizationId,
+            amount: item.organizationAmount,
+            orderId: id,
+            description: `Order #${order.externalRef} delivered - Funds released`,
+          });
+
+          this.logger.log(
+            `Released ${item.organizationAmount} to organization ${item.organizationId} for delivered order ${id}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to release funds for organization ${item.organizationId} on order ${id}: ${error.message}`,
+          );
+          // Don't fail the status update, but log the error for manual review
+        }
+      }
+    }
+
     return this.orderRepository.updateStatus(id, updateStatusDto.status, updateStatusDto.note);
   }
 
@@ -258,7 +318,7 @@ export class OrderManagementProvider {
       throw new BadRequestException('Only pending or processing orders can be cancelled');
     }
 
-    // Release reserved inventory before cancelling
+    // Get order items for processing
     const orderWithItems = await this.prisma.order.findUnique({
       where: { id },
       include: {
@@ -297,10 +357,35 @@ export class OrderManagementProvider {
           });
         } catch (error) {
           // Log error but don't fail the cancellation
-          console.error(
+          this.logger.error(
             `Failed to release inventory for variant ${item.variantSkuSnapshot}: ${error.message}`,
           );
         }
+      }
+    }
+
+    // Phase 7: Refund vendor balance (remove pending funds and total earnings)
+    this.logger.log(`Order ${id} cancelled - refunding vendor funds`);
+
+    for (const item of orderWithItems.orderItems) {
+      if (!item.organizationId || !item.organizationAmount) continue;
+
+      try {
+        await this.vendorBalanceManagement.refundFunds({
+          organizationId: item.organizationId,
+          amount: item.organizationAmount,
+          orderId: id,
+          description: `Order #${order.externalRef} cancelled - ${cancelDto.reason}`,
+        });
+
+        this.logger.log(
+          `Refunded ${item.organizationAmount} from organization ${item.organizationId} for cancelled order ${id}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to refund funds for organization ${item.organizationId} on order ${id}: ${error.message}`,
+        );
+        // Don't fail the cancellation, but log the error for manual review
       }
     }
 

@@ -15,7 +15,18 @@ export default registerAs('redis', () => ({
   password: process.env.REDIS_PASSWORD || undefined,
 
   /** Redis database index (0-15) */
-  db: parseInt(process.env.REDIS_DB || '0', 10),
+  db: (() => {
+    const dbValue = process.env.REDIS_DB || '0';
+    // Map string names to database numbers
+    const dbMap: Record<string, number> = {
+      'multi-vendor': 1,
+      'cache': 2,
+      'sessions': 3,
+      'queue': 4,
+    };
+    // If it's a named database, use the mapping; otherwise parse as number
+    return dbMap[dbValue] !== undefined ? dbMap[dbValue] : parseInt(dbValue, 10) || 0;
+  })(),
 
   /** Default TTL for cache in seconds */
   ttl: parseInt(process.env.REDIS_TTL || '300', 10), // 5 minutes

@@ -48,12 +48,23 @@ export class CatalogService {
 
   // ---------- Read APIs (pass-through) ----------
 
+  // Public catalog view
   getProducts(filter: ProductFilterDto) {
     return this.productManagement.getAllProducts(filter);
   }
 
   getProductById(id: number) {
     return this.productManagement.getProductById(id);
+  }
+
+  // ---------- Organization-Scoped APIs (for vendors) ----------
+
+  getProductsForOrganization(filter: ProductFilterDto, organizationId: number) {
+    return this.productManagement.getAllProductsForOrganization(filter, organizationId);
+  }
+
+  getProductByIdForOrganization(id: number, organizationId: number) {
+    return this.productManagement.getProductByIdForOrganization(id, organizationId);
   }
 
   getProductVariants(productId: number) {
@@ -98,8 +109,16 @@ export class CatalogService {
     return this.productManagement.createProduct(dto);
   }
 
+  createProductForOrganization(dto: CreateProductDto, organizationId: number) {
+    return this.productManagement.createProductForOrganization(dto, organizationId);
+  }
+
   updateProduct(id: number, dto: UpdateProductDto) {
     return this.productManagement.updateProduct(id, dto);
+  }
+
+  updateProductForOrganization(id: number, dto: UpdateProductDto, organizationId: number) {
+    return this.productManagement.updateProductForOrganization(id, dto, organizationId);
   }
 
   async deleteProduct(id: number) {
@@ -109,12 +128,26 @@ export class CatalogService {
     return this.productManagement.deleteProduct(id);
   }
 
+  async deleteProductForOrganization(id: number, organizationId: number) {
+    const existing = await this.productManagement.getProductByIdForOrganization(id, organizationId);
+    if (!existing) throw new NotFoundException(`Product ${id} not found for your organization`);
+    return this.productManagement.deleteProductForOrganization(id, organizationId);
+  }
+
   publishProduct(id: number) {
     return this.productManagement.publishProduct(id);
   }
 
+  publishProductForOrganization(id: number, organizationId: number) {
+    return this.productManagement.publishProductForOrganization(id, organizationId);
+  }
+
   unpublishProduct(id: number) {
     return this.productManagement.unpublishProduct(id);
+  }
+
+  unpublishProductForOrganization(id: number, organizationId: number) {
+    return this.productManagement.unpublishProductForOrganization(id, organizationId);
   }
 
   createVariant(dto: CreateVariantDto) {

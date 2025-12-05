@@ -13,7 +13,6 @@ import { Permissions } from '../auth/decorator/permissions.decorator';
  */
 @Controller('admin/reports')
 @Auth(AuthType.Bearer)
-@Roles('admin')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

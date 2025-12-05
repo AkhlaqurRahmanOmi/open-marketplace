@@ -27,14 +27,15 @@ import { TraceIdMiddleware } from './shared/middleware/trace-id.middleware';
 import { RedisCacheModule } from './core/config/cache/redis-cache.module';
 import { QueueModule } from './core/config/queue/queue.module';
 
-// Organizational Modules
+// Organizational Modules (Multi-Vendor Structure)
 import { CoreModule } from './modules/core.module';
-import { RbacModule } from './rbac/rbac.module';
-// TEMPORARILY COMMENTED OUT - Will re-enable after multi-vendor refactor
-// import { AdminModule } from './modules/admin.module';
-// import { PublicModule } from './modules/public.module';
-// import { TasksModule } from './tasks/tasks.module';
-// import { BlogModule } from './blog/blog.module';
+import { PlatformModule } from './modules/platform.module';
+import { VendorModule } from './modules/vendor.module';
+import { PublicModule } from './modules/public.module';
+import { AdminModule } from './modules/admin.module';
+import { AttributesModule } from './attributes/attributes.module';
+import { PaymentsModule } from './payments/payments.module';
+// import { TasksModule } from './tasks/tasks.module'; // TODO: Re-enable later
 @Module({
   imports: [
     // Global configuration with validation
@@ -54,17 +55,21 @@ import { RbacModule } from './rbac/rbac.module';
     LoggerModule,
     SharedModule,
     PrismaModule,
-    RedisCacheModule, // Redis-based caching (replaces in-memory cache)
+    RedisCacheModule, // Redis-based caching
     QueueModule, // BullMQ queue infrastructure
     JwtModule.registerAsync(jwtConfig.asProvider()),
-    // TasksModule, // Scheduled tasks and cron jobs // COMMENTED OUT - Multi-vendor refactor
+    PaymentsModule, // Payment processing (shared)
+    // TasksModule, // TODO: Re-enable scheduled tasks
 
-    // Feature Modules (Organized)
-    CoreModule, // Auth, User - KEEPING THIS FOR PHASE 2 WORK
-    RbacModule, // Role-Based Access Control - Separated from Auth & User
-    // AdminModule, // Orders, Cart, Inventory, Payments, Reports, Coupons, Shipping, Bundles // COMMENTED OUT
-    // PublicModule, // Catalog, Reviews, Notifications // COMMENTED OUT
-    // BlogModule, // Blog functionality // COMMENTED OUT
+    // Business Modules (Multi-Vendor Architecture)
+    CoreModule,      // Auth, User, RBAC (shared foundation)
+    PlatformModule,  // Super admin: Manage vendors, analytics, payouts
+    VendorModule,    // Vendor dashboard: Products, orders, inventory
+    PublicModule,    // Customer store: Browse, cart, checkout, reviews
+    AdminModule,     // Legacy admin routes (backward compatibility)
+
+    // Supporting Modules
+    AttributesModule, // Dynamic attributes for organizations/products
   ],
   controllers: [AppController],
   providers: [
@@ -95,5 +100,6 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TraceIdMiddleware, HttpLoggerMiddleware)
+      .forRoutes('*'); // Apply to all routes
   }
 }

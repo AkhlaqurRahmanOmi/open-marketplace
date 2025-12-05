@@ -9,7 +9,11 @@ import { UserRepository } from './user.repository';
 import { HashingProvider } from 'src/auth/providers/hashing.provider';
 import { UserWithRoles } from './types/user-with-relations.type';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type {Cache} from 'cache-manager';
+import type { Cache } from 'cache-manager';
+import {
+  CacheResult,
+  InvalidateCache,
+} from '../shared/decorators/cache-result.decorator';
 
 @Injectable()
 export class UserService {
@@ -210,23 +214,17 @@ export class UserService {
 
   /**
    * Find user with roles and permissions
+   * Cached for 2 minutes using RedisJSON (complex nested structure)
    */
-
-  private userRoleCacheKey(id: number) {
-    return `user_roles_permissions:${id}`;
-  }
+  @CacheResult({
+    ttl: 120_000, // 2 minutes in ms
+    keyPrefix: 'user_roles_permissions',
+    keyGenerator: (id: number) => `user_roles_permissions:${id}`,
+    dataStructure: 'json', // Use RedisJSON for nested roles/permissions
+  })
   public async findUserWithRoles(id: number): Promise<UserWithRoles | null> {
-    const key = this.userRoleCacheKey(id);
-
-    //Try cache
-    const cached = await this.cache.get<UserWithRoles>(key)
-    if(cached) return cached
     try {
-      const user = await this.userRepository.findByIdWithRoles(id);
-      if(user){
-        await this.cache.set(key, user, 120_000); //2 minutes in ms
-      }
-      return user
+      return await this.userRepository.findByIdWithRoles(id);
     } catch (error) {
       throw new RequestTimeoutException(
         'Unable to process your request at the moment, please try later',
@@ -237,9 +235,11 @@ export class UserService {
     }
   }
 
-
-  public async invalidateUserRoleCache(id: number){
-    const key = this.userRoleCacheKey(id);
+  /**
+   * Invalidate user role cache
+   */
+  public async invalidateUserRoleCache(id: number) {
+    const key = `user_roles_permissions:${id}`;
     await this.cache.del(key);
   }
 

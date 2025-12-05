@@ -7,8 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { OrganizationUser } from '@prisma/client';
-import { OrganizationRepository } from '../repositories/organization.repository';
-import { OrganizationUserRepository, OrganizationUserWithRelations } from '../repositories/organization-user.repository';
+import { OrganizationRepository } from '../repositories';
+import { OrganizationUserRepository, OrganizationUserWithRelations } from '../repositories';
 import { InviteUserDto, UpdateOrganizationUserDto, BulkInviteUsersDto } from '../dtos';
 import { PaginatedResult } from 'src/shared/types';
 import { NotificationsService } from 'src/notifications/notifications.service';

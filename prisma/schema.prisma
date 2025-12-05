@@ -45,7 +45,9 @@ enum PaymentStatus {
 enum RefundStatus {
   requested
   approved
-  processed
+  rejected
+  completed
+  cancelled
   failed
 }
 
@@ -336,12 +338,14 @@ model Organization {
   attributes           OrganizationAttribute[]
   organizationSettings OrganizationSettings?
   documents            OrganizationDocument[]
+  vendorBalance        VendorBalance?
   products             Product[]
   locations            Location[]
   orderItems           OrderItem[]
   shipments            Shipment[]
   coupons              Coupon[]
   refunds              Refund[]
+  vendorPayouts        VendorPayout[]
 
   @@index([type, status])
   @@index([type, isActive])
@@ -540,6 +544,90 @@ model OrganizationDocument {
   @@index([status])
   @@index([expiresAt])
   @@map("OrganizationDocument")
+}
+
+// ======================
+// Vendor Balance & Payouts
+// ======================
+model VendorBalance {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @unique @map("organization_id")
+  availableBalance Float     @default(0) @map("available_balance")
+  pendingBalance   Float     @default(0) @map("pending_balance")
+  totalEarnings    Float     @default(0) @map("total_earnings")
+  totalPaidOut     Float     @default(0) @map("total_paid_out")
+  lastPayoutAt     DateTime? @map("last_payout_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions VendorBalanceTransaction[]
+  payouts      VendorPayout[]
+
+  @@index([organizationId])
+  @@map("VendorBalance")
+}
+
+model VendorBalanceTransaction {
+  id            Int      @id @default(autoincrement())
+  balanceId     Int      @map("balance_id")
+  type          String   @db.VarChar(50) // 'credit', 'debit', 'hold', 'release', 'payout'
+  amount        Float
+  description   String   @db.Text
+  referenceType String?  @map("reference_type") @db.VarChar(50) // 'order', 'payout', 'refund'
+  referenceId   Int?     @map("reference_id")
+  balanceBefore Float    @map("balance_before")
+  balanceAfter  Float    @map("balance_after")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  balance VendorBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+
+  @@index([balanceId])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@map("VendorBalanceTransaction")
+}
+
+model VendorPayout {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  balanceId      Int       @map("balance_id")
+  amount         Float
+  currency       String    @default("USD") @db.Char(3)
+  status         String    @db.VarChar(50) // 'pending', 'processing', 'completed', 'failed', 'cancelled'
+  method         String    @db.VarChar(50) // 'bank_transfer', 'paypal', 'stripe'
+  accountDetails Json?     @map("account_details") @db.JsonB
+  scheduledDate  DateTime  @map("scheduled_date")
+  processedAt    DateTime? @map("processed_at")
+  completedAt    DateTime? @map("completed_at")
+  failureReason  String?   @map("failure_reason") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  balance      VendorBalance      @relation(fields: [balanceId], references: [id])
+  payoutItems  VendorPayoutItem[]
+
+  @@index([organizationId])
+  @@index([balanceId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("VendorPayout")
+}
+
+model VendorPayoutItem {
+  id          Int      @id @default(autoincrement())
+  payoutId    Int      @map("payout_id")
+  orderItemId Int      @map("order_item_id")
+  amount      Float
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  payout    VendorPayout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  orderItem OrderItem    @relation(fields: [orderItemId], references: [id])
+
+  @@index([payoutId])
+  @@index([orderItemId])
+  @@map("VendorPayoutItem")
 }
 
 // ======================
@@ -976,14 +1064,15 @@ model OrderItem {
   updatedAt           DateTime @default(now()) @map("updated_at")
 
   // Relations
-  order            Order             @relation(fields: [orderId], references: [id])
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  variant          Variant?          @relation(fields: [variantId], references: [id])
-  bundle           Bundle?           @relation(fields: [bundleId], references: [id])
+  order            Order              @relation(fields: [orderId], references: [id])
+  organization     Organization       @relation(fields: [organizationId], references: [id])
+  variant          Variant?           @relation(fields: [variantId], references: [id])
+  bundle           Bundle?            @relation(fields: [bundleId], references: [id])
   fulfillmentItems FulfillmentItem[]
   refundItems      RefundItem[]
   returnItems      ReturnItem[]
   reviews          Review[]
+  payoutItems      VendorPayoutItem[]
 
   @@index([orderId])
   @@index([organizationId])

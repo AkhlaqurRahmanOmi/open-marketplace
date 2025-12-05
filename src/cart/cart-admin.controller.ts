@@ -23,7 +23,6 @@ import { ReportFilterDto } from '../reports/dtos';
  */
 @Controller('admin/carts')
 @Auth(AuthType.Bearer)
-@Roles('admin')
 export class CartAdminController {
   constructor(private readonly cartService: CartService) {}
 

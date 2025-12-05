@@ -5,8 +5,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { OrganizationDocument, DocumentType, DocumentStatus } from '@prisma/client';
-import { OrganizationRepository } from '../repositories/organization.repository';
-import { OrganizationDocumentRepository, DocumentWithOrganization } from '../repositories/organization-document.repository';
+import { OrganizationRepository } from '../repositories';
+import { OrganizationDocumentRepository, DocumentWithOrganization } from '../repositories';
 import {
   UploadDocumentDto,
   ApproveDocumentDto,
