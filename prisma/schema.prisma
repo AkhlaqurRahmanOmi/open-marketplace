@@ -643,6 +643,8 @@ model Product {
   seoKeywords    String?   @map("seo_keywords") @db.VarChar(255)
   seoSlug        String?   @unique @map("seo_slug") @db.VarChar(255)
   isActive       Boolean   @default(true) @map("is_active")
+  feeType        String?   @map("fee_type") @db.VarChar(50)
+  feeAmount      Float?    @map("fee_amount")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @default(now()) @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
@@ -767,6 +769,8 @@ model Category {
   description String?
   slug        String   @unique @db.VarChar(150)
   parentId    Int?     @map("parent_id")
+  feeType     String?  @map("fee_type") @db.VarChar(50)
+  feeAmount   Float?   @map("fee_amount")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @default(now()) @map("updated_at")
 

@@ -29,6 +29,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",
     "@aws-sdk/s3-request-presigner": "^3.911.0",
+    "@bull-board/api": "^6.14.2",
+    "@bull-board/express": "^6.14.2",
+    "@bull-board/nestjs": "^6.14.2",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
@@ -44,7 +47,7 @@
     "@prisma/client": "^6.19.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
-    "bullmq": "^5.65.0",
+    "bullmq": "^5.65.1",
     "cache-manager": "^7.2.5",
     "cache-manager-redis-yet": "^5.1.5",
     "class-transformer": "^0.5.1",
@@ -62,7 +65,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
-    "uuid": "11.1.0"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@compodoc/compodoc": "^1.1.31",

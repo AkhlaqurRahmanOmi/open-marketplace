@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, MaxLength, IsEnum, Min, ValidateIf } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -18,4 +18,14 @@ export class CreateCategoryDto {
   @IsNumber()
   @IsOptional()
   parentId?: number;
+
+  @IsOptional()
+  @IsEnum(['percentage', 'fixed'], { message: 'feeType must be either percentage or fixed' })
+  feeType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'feeAmount must be a positive number' })
+  @ValidateIf((o) => o.feeType !== undefined)
+  feeAmount?: number;
 }

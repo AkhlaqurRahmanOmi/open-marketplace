@@ -27,6 +27,6 @@ import { VendorsModule } from '../vendors/vendors.module';
     OrderRepository,
     RefundRepository,
   ],
-  exports: [OrdersService],
+  exports: [OrdersService, CommissionCalculatorProvider],
 })
 export class OrdersModule {}

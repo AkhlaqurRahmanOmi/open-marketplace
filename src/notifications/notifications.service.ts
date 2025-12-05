@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Notification, NotificationTemplate, NotificationPreference } from '@prisma/client';
 import {
   NotificationRepository,
   NotificationTemplateRepository,
   NotificationPreferenceRepository,
 } from './repositories';
-import { NotificationDispatcherProvider, } from './providers';
 import {
   SendNotificationDto,
   CreateTemplateDto,
@@ -15,6 +16,8 @@ import {
   MarkAsReadDto,
 } from './dtos';
 import { PaginatedResult } from '../shared/types';
+import { NotificationChannel } from './enums';
+import { QUEUE_NAMES } from './queue.config';
 
 @Injectable()
 export class NotificationsService {
@@ -22,15 +25,71 @@ export class NotificationsService {
     private readonly notificationRepo: NotificationRepository,
     private readonly templateRepo: NotificationTemplateRepository,
     private readonly preferenceRepo: NotificationPreferenceRepository,
-    private readonly dispatcher: NotificationDispatcherProvider,
+
+    // Inject BullMQ queues
+    @InjectQueue(QUEUE_NAMES.EMAIL) private emailQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.REALTIME) private realtimeQueue: Queue,
   ) {}
 
   // ========================
   // Notification Dispatching
   // ========================
 
-  async send(dto: SendNotificationDto) {
-    return this.dispatcher.dispatch(dto);
+  /**
+   * Send notification via queue (async, non-blocking)
+   */
+  async send(dto: SendNotificationDto): Promise<Array<{ channel: string; success: boolean; error?: string }>> {
+    const results: Array<{ channel: string; success: boolean; error?: string }> = [];
+
+    // Enqueue jobs for each channel
+    for (const channel of dto.channels) {
+      if (channel === NotificationChannel.EMAIL) {
+        await this.emailQueue.add('send-email', {
+          userId: dto.userId,
+          userIds: dto.userIds,
+          event: dto.event,
+          title: dto.title,
+          message: dto.message,
+          templateName: dto.templateName,
+          data: dto.data,
+        });
+
+        results.push({ channel: NotificationChannel.EMAIL, success: true });
+      }
+
+      if (channel === NotificationChannel.REALTIME) {
+        await this.realtimeQueue.add('send-realtime', {
+          userId: dto.userId,
+          userIds: dto.userIds,
+          event: dto.event,
+          title: dto.title,
+          message: dto.message,
+          templateName: dto.templateName,
+          data: dto.data,
+        });
+
+        results.push({ channel: NotificationChannel.REALTIME, success: true });
+      }
+
+      // SMS and PUSH not implemented yet
+      if (channel === NotificationChannel.SMS) {
+        results.push({
+          channel: NotificationChannel.SMS,
+          success: false,
+          error: 'SMS channel not implemented',
+        });
+      }
+
+      if (channel === NotificationChannel.PUSH) {
+        results.push({
+          channel: NotificationChannel.PUSH,
+          success: false,
+          error: 'Push channel not implemented',
+        });
+      }
+    }
+
+    return results;
   }
 
   // ========================

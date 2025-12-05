@@ -490,4 +490,48 @@ export class CatalogController {
   clearMyWishlist(@ActiveUser('sub') userId: number) {
     return this.catalog.clearMyWishlist(userId)
   }
+
+  // ============ Commission Management Endpoints ============
+
+  @Get('products/:id/commission')
+  @Auth(AuthType.None)
+  @HttpCode(HttpStatus.OK)
+  @RelatedLinks({
+    self: {
+      path: '/api/v1/catalog/products/{id}/commission',
+      method: 'GET',
+      rel: 'self',
+      description: 'Get product commission breakdown',
+    },
+    product: {
+      path: '/api/v1/catalog/products/{id}',
+      method: 'GET',
+      rel: 'related',
+      description: 'Get product details',
+    },
+  })
+  async getProductCommission(@Param('id', ParseIntPipe) id: number) {
+    return this.catalog.getProductCommissionBreakdown(id);
+  }
+
+  @Get('categories/:id/commission')
+  @Auth(AuthType.None)
+  @HttpCode(HttpStatus.OK)
+  @RelatedLinks({
+    self: {
+      path: '/api/v1/catalog/categories/{id}/commission',
+      method: 'GET',
+      rel: 'self',
+      description: 'Get category commission breakdown',
+    },
+    category: {
+      path: '/api/v1/catalog/categories/{id}',
+      method: 'GET',
+      rel: 'related',
+      description: 'Get category details',
+    },
+  })
+  async getCategoryCommission(@Param('id', ParseIntPipe) id: number) {
+    return this.catalog.getCategoryCommissionBreakdown(id);
+  }
 }

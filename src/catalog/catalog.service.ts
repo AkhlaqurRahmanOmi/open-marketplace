@@ -26,6 +26,8 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { MonitorClass } from '../shared/decorators/performance-monitor.decorator';
 import { UnitOfWorkService } from '../shared/services/unit-of-work.service';
+import { CommissionCalculatorProvider } from '../orders/providers/commission-calculator.provider';
+import { PrismaService } from '../core/config/prisma/prisma.service';
 
 /**
  * CatalogService is a facade that exposes a simplified API
@@ -43,7 +45,9 @@ export class CatalogService {
     private readonly imageManagement: ImageManagementProvider,
     private readonly optionManagement: OptionManagementProvider,
     private readonly wishlistManagement : WishlistManagementProvider,
-    private readonly unitOfWork : UnitOfWorkService
+    private readonly unitOfWork : UnitOfWorkService,
+    private readonly commissionCalculator: CommissionCalculatorProvider,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ---------- Read APIs (pass-through) ----------
@@ -391,5 +395,127 @@ export class CatalogService {
 
   clearMyWishlist(userId: number) {
     return this.wishlistManagement.clearMyWishlist(userId);
+  }
+
+  // ---------- Commission Management ----------
+
+  async getProductCommissionBreakdown(productId: number) {
+    // Get product with category and organization info
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            feeType: true,
+            feeAmount: true,
+            type: true,
+          },
+        },
+        productCategories: {
+          take: 1,
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+                feeType: true,
+                feeAmount: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product ${productId} not found`);
+    }
+
+    const primaryCategory = product.productCategories?.[0]?.category;
+
+    // Get organization type defaults
+    const orgType = await this.prisma.organizationType.findFirst({
+      where: { code: product.organization.type },
+      select: {
+        code: true,
+        displayName: true,
+        defaultFeeType: true,
+        defaultFeeAmount: true,
+      },
+    });
+
+    // Calculate effective commission for a sample amount (e.g., $100)
+    const sampleAmount = 100;
+    const effectiveCommission = await this.commissionCalculator.calculateCommission(
+      sampleAmount,
+      product.organizationId,
+      product.id,
+      primaryCategory?.id,
+    );
+
+    return {
+      product: {
+        id: product.id,
+        name: product.name,
+        feeType: product.feeType,
+        feeAmount: product.feeAmount,
+      },
+      category: primaryCategory ? {
+        id: primaryCategory.id,
+        name: primaryCategory.name,
+        feeType: primaryCategory.feeType,
+        feeAmount: primaryCategory.feeAmount,
+      } : null,
+      vendor: {
+        id: product.organization.id,
+        name: product.organization.name,
+        feeType: product.organization.feeType,
+        feeAmount: product.organization.feeAmount,
+      },
+      organizationType: orgType ? {
+        code: orgType.code,
+        displayName: orgType.displayName,
+        defaultFeeType: orgType.defaultFeeType,
+        defaultFeeAmount: orgType.defaultFeeAmount,
+      } : null,
+      effectiveCommission: {
+        source: effectiveCommission.commissionSource,
+        feeType: effectiveCommission.feeType,
+        feeRate: effectiveCommission.feeRate,
+        sampleCalculation: {
+          amount: sampleAmount,
+          platformFee: effectiveCommission.platformFeeAmount,
+          vendorReceives: effectiveCommission.organizationAmount,
+        },
+      },
+    };
+  }
+
+  async getCategoryCommissionBreakdown(categoryId: number) {
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      select: {
+        id: true,
+        name: true,
+        feeType: true,
+        feeAmount: true,
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category ${categoryId} not found`);
+    }
+
+    return {
+      category: {
+        id: category.id,
+        name: category.name,
+        feeType: category.feeType,
+        feeAmount: category.feeAmount,
+      },
+      note: 'Category-level commission applies to all products in this category that do not have product-specific commission set.',
+    };
   }
 }

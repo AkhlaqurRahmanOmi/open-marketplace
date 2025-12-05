@@ -12,6 +12,28 @@ export interface CommissionResult {
   organizationAmount: number;
   feeType: string;
   feeRate: number;
+  commissionSource?: string; // 'product' | 'category' | 'vendor' | 'organization_type' | 'none'
+}
+
+// New interface for passing commission hierarchy data
+export interface CommissionHierarchyData {
+  product?: {
+    feeType: string | null;
+    feeAmount: number | null;
+  };
+  category?: {
+    feeType: string | null;
+    feeAmount: number | null;
+  };
+  organization: {
+    feeType: string | null;
+    feeAmount: number | null;
+    type: string;
+  };
+  organizationType?: {
+    defaultFeeType: string | null;
+    defaultFeeAmount: number | null;
+  };
 }
 
 @Injectable()
@@ -21,57 +43,180 @@ export class CommissionCalculatorProvider {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Calculate commission for an order item based on organization's fee configuration
+   * OPTIMIZED: Calculate commission using pre-loaded data (zero additional queries)
+   * Product → Category → Vendor → Organization Type hierarchy
+   * @param lineTotal - Total amount for the line item
+   * @param data - Pre-loaded commission hierarchy data
+   * @returns Commission breakdown with source indicator
+   */
+  calculateCommissionFromData(
+    lineTotal: number,
+    data: CommissionHierarchyData,
+  ): CommissionResult {
+    let feeType: string | null = null;
+    let feeAmount: number | null = null;
+    let commissionSource = 'none';
+
+    // 1. Try product-level commission (highest priority)
+    if (data.product?.feeType && data.product?.feeAmount !== null && data.product?.feeAmount !== undefined) {
+      feeType = data.product.feeType;
+      feeAmount = data.product.feeAmount;
+      commissionSource = 'product';
+      this.logger.debug(
+        `Using product-level commission: ${feeType} - ${feeAmount}`,
+      );
+    }
+    // 2. Try category-level commission
+    else if (data.category?.feeType && data.category?.feeAmount !== null && data.category?.feeAmount !== undefined) {
+      feeType = data.category.feeType;
+      feeAmount = data.category.feeAmount;
+      commissionSource = 'category';
+      this.logger.debug(
+        `Using category-level commission: ${feeType} - ${feeAmount}`,
+      );
+    }
+    // 3. Try vendor-level commission
+    else if (data.organization.feeType && data.organization.feeAmount !== null && data.organization.feeAmount !== undefined) {
+      feeType = data.organization.feeType;
+      feeAmount = data.organization.feeAmount;
+      commissionSource = 'vendor';
+      this.logger.debug(
+        `Using vendor-level commission: ${feeType} - ${feeAmount}`,
+      );
+    }
+    // 4. Fall back to organization type defaults
+    else if (data.organizationType?.defaultFeeType && data.organizationType?.defaultFeeAmount !== null) {
+      feeType = data.organizationType.defaultFeeType;
+      feeAmount = data.organizationType.defaultFeeAmount;
+      commissionSource = 'organization_type';
+      this.logger.debug(
+        `Using organization type default commission: ${feeType} - ${feeAmount}`,
+      );
+    }
+
+    // Calculate commission based on fee type
+    const result = this.calculateCommissionFromConfig(lineTotal, {
+      feeType,
+      feeAmount,
+    });
+
+    this.logger.debug(
+      `Commission calculated (source: ${commissionSource}): ${JSON.stringify(result)}`,
+    );
+
+    return {
+      ...result,
+      commissionSource,
+    };
+  }
+
+  /**
+   * LEGACY: Calculate commission for an order item with multi-level hierarchy (uses database queries)
+   * Product → Category → Vendor → Organization Type
+   * @deprecated Use calculateCommissionFromData() for better performance
    * @param lineTotal - Total amount for the line item
    * @param organizationId - ID of the vendor organization
-   * @returns Commission breakdown
+   * @param productId - Optional product ID for product-level commission
+   * @param categoryId - Optional category ID for category-level commission
+   * @returns Commission breakdown with source indicator
    */
   async calculateCommission(
     lineTotal: number,
     organizationId: number,
+    productId?: number,
+    categoryId?: number,
   ): Promise<CommissionResult> {
-    // Fetch organization with fee configuration
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: {
-        id: true,
-        name: true,
-        feeType: true,
-        feeAmount: true,
-        type: true,
-      },
-    });
+    let feeType: string | null = null;
+    let feeAmount: number | null = null;
+    let commissionSource = 'none';
 
-    if (!organization) {
-      this.logger.warn(
-        `Organization ${organizationId} not found, using zero commission`,
-      );
-      return {
-        lineTotal,
-        platformFeeAmount: 0,
-        organizationAmount: lineTotal,
-        feeType: 'none',
-        feeRate: 0,
-      };
+    // 1. Try to get product-level commission (highest priority)
+    if (productId) {
+      const product = await this.prisma.product.findUnique({
+        where: { id: productId },
+        select: { feeType: true, feeAmount: true, name: true },
+      });
+
+      if (product?.feeType && product?.feeAmount !== null && product?.feeAmount !== undefined) {
+        feeType = product.feeType;
+        feeAmount = product.feeAmount;
+        commissionSource = 'product';
+        this.logger.debug(
+          `Using product-level commission for product ${product.name}: ${feeType} - ${feeAmount}`,
+        );
+      }
     }
 
-    // Get fee configuration from organization or fall back to organization type defaults
-    let feeType = organization.feeType;
-    let feeAmount = organization.feeAmount;
+    // 2. If no product commission, try category-level commission
+    if (!feeType && categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: categoryId },
+        select: { feeType: true, feeAmount: true, name: true },
+      });
 
-    // If organization doesn't have custom fee, use defaults from OrganizationType
-    if (!feeType || feeAmount === null || feeAmount === undefined) {
-      const orgType = await this.prisma.organizationType.findFirst({
-        where: { code: organization.type },
+      if (category?.feeType && category?.feeAmount !== null && category?.feeAmount !== undefined) {
+        feeType = category.feeType;
+        feeAmount = category.feeAmount;
+        commissionSource = 'category';
+        this.logger.debug(
+          `Using category-level commission for category ${category.name}: ${feeType} - ${feeAmount}`,
+        );
+      }
+    }
+
+    // 3. If no product or category commission, try vendor-level commission
+    if (!feeType) {
+      const organization = await this.prisma.organization.findUnique({
+        where: { id: organizationId },
         select: {
-          defaultFeeType: true,
-          defaultFeeAmount: true,
+          id: true,
+          name: true,
+          feeType: true,
+          feeAmount: true,
+          type: true,
         },
       });
 
-      if (orgType) {
-        feeType = orgType.defaultFeeType;
-        feeAmount = orgType.defaultFeeAmount;
+      if (!organization) {
+        this.logger.warn(
+          `Organization ${organizationId} not found, using zero commission`,
+        );
+        return {
+          lineTotal,
+          platformFeeAmount: 0,
+          organizationAmount: lineTotal,
+          feeType: 'none',
+          feeRate: 0,
+          commissionSource: 'none',
+        };
+      }
+
+      // Check if organization has custom commission
+      if (organization.feeType && organization.feeAmount !== null && organization.feeAmount !== undefined) {
+        feeType = organization.feeType;
+        feeAmount = organization.feeAmount;
+        commissionSource = 'vendor';
+        this.logger.debug(
+          `Using vendor-level commission for ${organization.name}: ${feeType} - ${feeAmount}`,
+        );
+      } else {
+        // 4. Fall back to organization type defaults
+        const orgType = await this.prisma.organizationType.findFirst({
+          where: { code: organization.type },
+          select: {
+            defaultFeeType: true,
+            defaultFeeAmount: true,
+          },
+        });
+
+        if (orgType && orgType.defaultFeeType && orgType.defaultFeeAmount !== null) {
+          feeType = orgType.defaultFeeType;
+          feeAmount = orgType.defaultFeeAmount;
+          commissionSource = 'organization_type';
+          this.logger.debug(
+            `Using organization type default commission: ${feeType} - ${feeAmount}`,
+          );
+        }
       }
     }
 
@@ -82,10 +227,13 @@ export class CommissionCalculatorProvider {
     });
 
     this.logger.debug(
-      `Commission calculated for org ${organization.name}: ${JSON.stringify(result)}`,
+      `Commission calculated (source: ${commissionSource}): ${JSON.stringify(result)}`,
     );
 
-    return result;
+    return {
+      ...result,
+      commissionSource,
+    };
   }
 
   /**
@@ -146,11 +294,16 @@ export class CommissionCalculatorProvider {
 
   /**
    * Calculate total commission for multiple items
-   * @param items - Array of {lineTotal, organizationId}
+   * @param items - Array of {lineTotal, organizationId, productId?, categoryId?}
    * @returns Aggregated commission data
    */
   async calculateBulkCommission(
-    items: Array<{ lineTotal: number; organizationId: number }>,
+    items: Array<{
+      lineTotal: number;
+      organizationId: number;
+      productId?: number;
+      categoryId?: number;
+    }>,
   ): Promise<{
     totalLineTotal: number;
     totalPlatformFee: number;
@@ -159,7 +312,12 @@ export class CommissionCalculatorProvider {
   }> {
     const breakdown = await Promise.all(
       items.map((item) =>
-        this.calculateCommission(item.lineTotal, item.organizationId),
+        this.calculateCommission(
+          item.lineTotal,
+          item.organizationId,
+          item.productId,
+          item.categoryId,
+        ),
       ),
     );
 
@@ -190,7 +348,9 @@ export class CommissionCalculatorProvider {
   async getCommissionPreview(
     organizationId: number,
     amount: number,
+    productId?: number,
+    categoryId?: number,
   ): Promise<CommissionResult> {
-    return this.calculateCommission(amount, organizationId);
+    return this.calculateCommission(amount, organizationId, productId, categoryId);
   }
 }

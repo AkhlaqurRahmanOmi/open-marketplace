@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CatalogController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
 import {
@@ -15,9 +15,13 @@ import {
   CategoryRepository, WishlistRepository,
 } from './repositories';
 import { SharedModule } from '../shared/shared.module';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  imports: [SharedModule],
+  imports: [
+    SharedModule,
+    forwardRef(() => OrdersModule),
+  ],
   controllers: [CatalogController],
   providers: [
     CatalogService,
