@@ -1,369 +1,867 @@
-# E-Commerce REST API
+<div align="center">
 
-A production-ready, enterprise-grade E-Commerce REST API built with NestJS, Prisma, and PostgreSQL. Features comprehensive e-commerce functionality, advanced authentication, role-based access control, and REST API best practices.
+# 🛒 Multi-Vendor E-Commerce Platform
 
-## 🚀 Features
+### Enterprise-Grade REST API for Multi-Stakeholder Marketplace
 
-### Authentication & Security
-- JWT-based authentication with access/refresh tokens
-- Google OAuth 2.0 integration
-- OTP-based email verification with rate limiting and automated cleanup
-- Password reset with secure token-based flow
-- Role-Based Access Control (RBAC) with user roles and permissions
-- Fine-grained permission system for granular access control
-- Bcrypt password hashing
+[![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)](https://www.prisma.io/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
-### E-Commerce Capabilities
-- **Product Catalog**: Products with variants, options, images, categories, SEO optimization, full-text search, and product bundles
-- **Inventory Management**: Multi-location inventory tracking, stock management, reserved inventory, and movement history
-- **Shopping Experience**: Guest and authenticated user carts with session-based management, cart status tracking (active, converted, abandoned, expired), abandoned cart recovery, cart expiration management, wishlist functionality, recently viewed products
-- **Order Management**: Complete order lifecycle (pending → processing → shipped → delivered) with status tracking and history
-- **Shipping & Fulfillment**: Multiple shipping methods (standard, express, overnight, same-day, pickup), carrier tracking, multi-location fulfillment
-- **Payment Processing**: Multiple payment gateways, transaction logging, audit trail, refund management
-- **Returns Management**: Return request workflow with approval/rejection process and condition tracking
-- **Coupons & Discounts**: Flexible coupon system (percentage, fixed amount, free shipping) with usage limits, date restrictions, product/category targeting, user-specific coupons, and redemption tracking
-- **Reviews & Ratings**: Product reviews with 1-5 star ratings, image uploads (AWS S3), verified purchase badges, admin moderation, and statistics
-- **Notifications**: Multi-channel notifications (email, WebSocket, in-app, SMS, push) with Handlebars templates, user preferences, status tracking (pending, sent, failed, read, archived), and automated cleanup
-- **Reports & Analytics**: Sales reports, order statistics, product performance metrics, cart analytics (conversion rates, abandonment rates, average cart value), and abandoned cart details
+A production-ready, scalable multi-vendor e-commerce backend with comprehensive marketplace features, advanced RBAC, vendor management, and real-time capabilities.
 
-### Technical Features
-- RESTful API design with URI-based versioning (v1, v2)
-- Standardized response format with HATEOAS links
-- Request tracing with unique IDs for debugging
-- In-memory caching with configurable TTL and max items
-- Pagination, filtering, and sorting support
-- AWS S3 integration for file storage (product images, review images)
-- Winston logger with structured logging, log rotation, and configurable log levels
-- Comprehensive Swagger/OpenAPI documentation with detailed schemas
-- Global error handling with class-validator validation
-- Scheduled tasks for automated cleanup (OTP cleanup daily at 2 AM, notification archival daily at 3 AM)
-- Event-driven architecture with @nestjs/event-emitter
-- Full-text search support for products (PostgreSQL)
-- Compodoc integration for code documentation
+[Features](#-features) • [Tech Stack](#-tech-stack) • [Quick Start](#-quick-start) • [API Documentation](#-api-documentation) • [Architecture](#-architecture)
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Running the Application](#-running-the-application)
+- [API Documentation](#-api-documentation)
+- [Database Schema](#-database-schema)
+- [Security](#-security)
+- [Testing](#-testing)
+- [Deployment](#-deployment)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
+## 🎯 Overview
+
+**WayWise** is a comprehensive multi-vendor e-commerce platform designed to support multiple stakeholders including vendors, service providers, and administrators. Built with modern technologies and best practices, it provides a robust foundation for marketplace applications.
+
+### What Makes It Special?
+
+- **Multi-Vendor Architecture**: Support for unlimited vendors with isolated inventory and order management
+- **Flexible Organization System**: Dynamic organization types (vendors, suppliers, service providers, etc.)
+- **Advanced RBAC**: Role-based access control with fine-grained permissions at platform and organization levels
+- **Vendor Financial Management**: Built-in balance tracking, payout scheduling, and transaction history
+- **Real-time Capabilities**: WebSocket support for live notifications and updates
+- **Production-Ready**: Comprehensive logging, error handling, caching, and monitoring
+
+---
+
+## ✨ Key Features
+
+### 🔐 Authentication & Security
+
+- **JWT Authentication**: Access and refresh token mechanism with configurable expiration
+- **Google OAuth 2.0**: Social login integration
+- **OTP Verification**: Email-based verification with rate limiting and cooldown
+- **Password Management**: Secure reset flow with token-based validation
+- **RBAC System**: Multi-level role and permission management
+- **Bcrypt Hashing**: Industry-standard password encryption
+
+### 🏢 Multi-Vendor & Organization Management
+
+- **Dynamic Organization Types**: Configurable organization categories (vendors, suppliers, manufacturers, etc.)
+- **Organization Lifecycle**: Approval workflow with pending, active, suspended, rejected states
+- **Vendor Onboarding**: Document verification system with multiple document types
+- **Custom Attributes**: Flexible attribute system for organization-specific data
+- **Organization Settings**: Customizable policies, timezone, language preferences
+- **Multi-User Organizations**: Team management with role assignments
+
+### 💰 Vendor Financial System
+
+- **Balance Management**: Real-time tracking of available and pending balances
+- **Transaction Logging**: Complete audit trail of all financial movements
+- **Automated Payouts**: Scheduled payout system with multiple payment methods
+- **Fee Management**: Configurable platform fees per organization or globally
+- **Revenue Split**: Automatic calculation of vendor earnings and platform fees
+- **Payout History**: Detailed records of all completed and pending payouts
+
+### 🛍️ Product Catalog & Inventory
+
+- **Product Management**: Full CRUD with variants, options, and attributes
+- **Multi-Vendor Products**: Each product belongs to a specific organization
+- **Product Variants**: Support for size, color, and custom option combinations
+- **Image Management**: Multiple images per product with AWS S3 integration
+- **Category System**: Hierarchical categories with unlimited nesting
+- **SEO Optimization**: Meta titles, descriptions, keywords, and custom slugs
+- **Product Bundles**: Create product packages with discounted pricing
+- **Full-Text Search**: PostgreSQL-powered search across products
+
+### 📦 Inventory Management
+
+- **Multi-Location Support**: Track inventory across multiple warehouses
+- **Real-Time Stock Tracking**: Automatic updates on orders and returns
+- **Reserved Inventory**: Hold stock during checkout process
+- **Movement History**: Complete audit trail of all inventory changes
+- **Low Stock Alerts**: Configurable thresholds for notifications
+- **Bulk Operations**: Import/export and bulk update capabilities
+
+### 🛒 Shopping Experience
+
+- **Smart Cart System**: Session-based for guests, persistent for authenticated users
+- **Cart Status Tracking**: Active, converted, abandoned, expired states
+- **Abandoned Cart Recovery**: Automated detection and recovery workflows
+- **Wishlist**: Save items for later with multi-item support
+- **Recently Viewed**: Track user browsing history
+- **Guest Checkout**: Complete purchase without registration
+
+### 📋 Order Management
+
+- **Complete Order Lifecycle**: Pending → Processing → Shipped → Delivered → Completed
+- **Multi-Vendor Orders**: Single order with items from multiple vendors
+- **Order Splitting**: Automatic fulfillment routing to respective vendors
+- **Status History**: Track all status changes with timestamps
+- **Order Notes**: Internal notes and customer communications
+- **Bulk Operations**: Process multiple orders simultaneously
+
+### 🚚 Shipping & Fulfillment
+
+- **Multiple Shipping Methods**: Standard, Express, Overnight, Same-Day, Pickup
+- **Carrier Integration**: Support for major shipping carriers
+- **Real-Time Tracking**: Track shipments with carrier tracking numbers
+- **Multi-Location Fulfillment**: Ship from nearest warehouse
+- **Shipping Calculations**: Dynamic rate calculation based on weight and destination
+- **Delivery Estimates**: Automatic calculation of delivery timeframes
+
+### 💳 Payment Processing
+
+- **Multiple Payment Gateways**: Extensible payment provider system
+- **PesaPal Integration**: Built-in support for African payment gateway
+- **Transaction Logging**: Complete audit trail of all payment events
+- **Payment Status Tracking**: Pending, Authorized, Captured, Failed, Voided
+- **Refund Management**: Full and partial refund support
+- **Secure Processing**: PCI-compliant payment handling
+
+### 🔄 Returns & Refunds
+
+- **Return Request Workflow**: Customer-initiated returns with approval process
+- **Condition Tracking**: New, Opened, Damaged condition states
+- **Automated Refunds**: Trigger refunds upon return approval
+- **Return Reasons**: Categorized return reasons for analytics
+- **Restocking**: Automatic inventory adjustment on returns
+- **Vendor-Specific Returns**: Route returns to original vendor
+
+### 🎟️ Coupons & Promotions
+
+- **Flexible Discount Types**: Percentage, Fixed Amount, Free Shipping
+- **Targeting Options**: Product-specific, category-specific, or global
+- **Usage Limits**: Maximum uses per coupon and per user
+- **Date Restrictions**: Start and end date validation
+- **User-Specific Coupons**: Assign coupons to specific customers
+- **Redemption Tracking**: Complete history of coupon usage
+- **Vendor Coupons**: Organization-specific promotional codes
+
+### ⭐ Reviews & Ratings
+
+- **5-Star Rating System**: Standard rating scale with half-star support
+- **Review Images**: Upload up to 5 images per review (AWS S3)
+- **Verified Purchase Badge**: Highlight reviews from actual buyers
+- **Admin Moderation**: Approve, reject, or flag inappropriate reviews
+- **Review Statistics**: Average ratings, distribution charts
+- **Helpful Votes**: Community-driven review ranking
+
+### 🔔 Notification System
+
+- **Multi-Channel Delivery**: Email, SMS, Push, WebSocket, In-App
+- **Template Engine**: Handlebars-based customizable templates
+- **User Preferences**: Granular control over notification channels
+- **Status Tracking**: Pending, Sent, Failed, Read, Archived
+- **Event-Driven**: Automatic notifications on key events
+- **Scheduled Cleanup**: Automatic archival of old notifications
+- **Real-Time Updates**: WebSocket integration for instant delivery
+
+### 📊 Reports & Analytics
+
+- **Sales Reports**: Revenue, orders, and performance metrics
+- **Vendor Analytics**: Individual vendor performance tracking
+- **Product Performance**: Best sellers, slow movers, stock analysis
+- **Cart Analytics**: Conversion rates, abandonment analysis
+- **Customer Insights**: Purchase patterns, lifetime value
+- **Financial Reports**: Revenue breakdown, fee collection, payouts
+
+### 📝 Content Management
+
+- **Blog System**: Full-featured blog with rich text editor (Jodit)
+- **Homepage CMS**: Manage hero banners, features, story sections
+- **Dynamic Sections**: Configurable homepage layout
+- **SEO-Friendly**: Meta tags and structured data support
+- **Draft/Publish Workflow**: Content staging before going live
+
+### 🛠️ Technical Features
+
+- **RESTful API Design**: Clean, predictable endpoint structure
+- **API Versioning**: URI-based versioning (v1, v2)
+- **Modular Architecture**: Platform, Admin, Vendor, Public modules
+- **HATEOAS Links**: Hypermedia-driven API responses
+- **Request Tracing**: Unique request IDs for debugging
+- **Response Standardization**: Consistent response format across all endpoints
+- **Pagination**: Cursor and offset-based pagination
+- **Filtering & Sorting**: Advanced query capabilities
+- **Redis Caching**: High-performance caching layer
+- **BullMQ Integration**: Background job processing
+- **Rate Limiting**: Protect against abuse and DDoS
+- **CORS Configuration**: Secure cross-origin requests
+- **Compression**: Gzip response compression
+- **Health Checks**: Endpoint monitoring and status
+- **Graceful Shutdown**: Clean process termination
+
+### 📚 Documentation & Developer Experience
+
+- **Swagger/OpenAPI**: Interactive API documentation
+- **Compodoc**: Automated code documentation
+- **TypeScript**: Full type safety and IntelliSense
+- **ESLint & Prettier**: Code quality and formatting
+- **Git Hooks**: Pre-commit validation
+- **Docker Support**: Containerized development and deployment
+- **Environment Validation**: Joi-based config validation
+
+### ⏰ Scheduled Tasks
+
+- **OTP Cleanup**: Daily cleanup of expired OTP codes (2:00 AM)
+- **Notification Archival**: Archive old notifications (3:00 AM)
+- **Cart Expiration**: Mark inactive carts as expired
+- **Payout Processing**: Automated vendor payout execution
+- **Report Generation**: Scheduled analytics and reports
+
+---
 
 ## 🛠️ Tech Stack
 
-- **Framework**: NestJS (Node.js framework)
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT + Google OAuth 2.0 + OTP
-- **Storage**: AWS S3 (or S3-compatible services like Synology C2)
-- **Email**: Nodemailer with SMTP
-- **Real-time**: Socket.IO for WebSocket connections
-- **Validation**: class-validator, class-transformer
-- **Logging**: Winston with nest-winston
-- **Caching**: @nestjs/cache-manager (in-memory)
-- **Documentation**: Swagger/OpenAPI
-- **Language**: TypeScript
+### Core Framework
+- **[NestJS](https://nestjs.com/)** - Progressive Node.js framework
+- **[TypeScript](https://www.typescriptlang.org/)** - Type-safe JavaScript
+- **[Node.js](https://nodejs.org/)** - JavaScript runtime (v16+)
+
+### Database & ORM
+- **[PostgreSQL](https://www.postgresql.org/)** - Relational database (v12+)
+- **[Prisma](https://www.prisma.io/)** - Next-generation ORM
+- **Full-Text Search** - PostgreSQL native search
+
+### Authentication & Security
+- **[@nestjs/jwt](https://www.npmjs.com/package/@nestjs/jwt)** - JWT implementation
+- **[Google OAuth Library](https://www.npmjs.com/package/google-auth-library)** - OAuth 2.0
+- **[Bcrypt](https://www.npmjs.com/package/bcrypt)** - Password hashing
+
+### Storage & File Management
+- **[AWS SDK S3](https://www.npmjs.com/package/@aws-sdk/client-s3)** - Cloud storage
+- **[Multer](https://www.npmjs.com/package/multer)** - File upload handling
+
+### Caching & Queue
+- **[Redis](https://redis.io/)** - In-memory data store
+- **[BullMQ](https://docs.bullmq.io/)** - Background job processing
+- **[@nestjs/cache-manager](https://www.npmjs.com/package/@nestjs/cache-manager)** - Caching abstraction
+
+### Real-Time Communication
+- **[Socket.IO](https://socket.io/)** - WebSocket library
+- **[@nestjs/websockets](https://www.npmjs.com/package/@nestjs/websockets)** - WebSocket module
+
+### Email & Notifications
+- **[Nodemailer](https://nodemailer.com/)** - Email sending
+- **[Handlebars](https://handlebarsjs.com/)** - Template engine
+
+### Validation & Transformation
+- **[class-validator](https://www.npmjs.com/package/class-validator)** - Decorator-based validation
+- **[class-transformer](https://www.npmjs.com/package/class-transformer)** - Object transformation
+- **[Joi](https://joi.dev/)** - Schema validation
+
+### Logging & Monitoring
+- **[Winston](https://www.npmjs.com/package/winston)** - Logging library
+- **[nest-winston](https://www.npmjs.com/package/nest-winston)** - NestJS Winston integration
+
+### Documentation
+- **[@nestjs/swagger](https://www.npmjs.com/package/@nestjs/swagger)** - OpenAPI/Swagger
+- **[Compodoc](https://compodoc.app/)** - Code documentation generator
+
+### Payment Integration
+- **[PesaPal SDK](https://www.npmjs.com/package/pesapal3-sdk)** - Payment gateway
+
+### Development Tools
+- **[ESLint](https://eslint.org/)** - Code linting
+- **[Prettier](https://prettier.io/)** - Code formatting
+- **[Jest](https://jestjs.io/)** - Testing framework
+- **[Docker](https://www.docker.com/)** - Containerization
+
+---
+
+## 🏗️ Architecture
+
+### Module Structure
+
+```
+src/
+├── modules/
+│   ├── platform.module.ts    # Platform-wide features
+│   ├── admin.module.ts        # Admin-specific features
+│   ├── vendor.module.ts       # Vendor-specific features
+│   ├── public.module.ts       # Public-facing features
+│   └── core.module.ts         # Core shared features
+├── auth/                      # Authentication & authorization
+├── user/                      # User management
+├── organization/              # Multi-vendor organization system
+├── vendors/                   # Vendor-specific operations
+├── rbac/                      # Role-based access control
+├── attributes/                # Dynamic attribute system
+├── catalog/                   # Product catalog
+├── bundles/                   # Product bundles
+├── inventory/                 # Inventory management
+├── cart/                      # Shopping cart
+├── orders/                    # Order processing
+├── shipping/                  # Shipping & fulfillment
+├── payments/                  # Payment processing
+├── reviews/                   # Product reviews
+├── coupons/                   # Discount coupons
+├── notifications/             # Notification system
+├── reports/                   # Analytics & reporting
+├── blog/                      # Blog/CMS
+├── cms/                       # Content management
+├── shared/                    # Shared utilities
+├── config/                    # Configuration
+├── logger/                    # Logging setup
+└── tasks/                     # Scheduled tasks
+```
+
+### Database Architecture
+
+The system uses a comprehensive PostgreSQL schema with 60+ tables organized into logical domains:
+
+- **Authentication**: User, Role, Permission, OTP, PasswordResetToken
+- **Organizations**: Organization, OrganizationType, OrganizationUser, OrganizationSettings
+- **Attributes**: AttributeDefinition, OrganizationAttribute, AttributeOption
+- **Catalog**: Product, Variant, ProductOption, Category, ProductImage
+- **Inventory**: Location, VariantInventory, InventoryMovement
+- **Shopping**: Cart, CartItem, Wishlist, RecentlyViewed
+- **Orders**: Order, OrderItem, OrderAddress, OrderStatusHistory
+- **Fulfillment**: Shipment, FulfillmentItem, ShippingMethod
+- **Payments**: Payment, TransactionLog, Refund, RefundItem
+- **Financials**: VendorBalance, VendorBalanceTransaction, VendorPayout
+- **Reviews**: Review, ReviewImage
+- **Coupons**: Coupon, CouponRedemption, CouponProduct
+- **Notifications**: Notification, NotificationTemplate, NotificationPreference
+- **Content**: BlogPost, HomepageSection
+
+---
 
 ## 📋 Prerequisites
 
-- Node.js v16 or higher
-- PostgreSQL 12 or higher
-- npm or yarn package manager
-- AWS S3 bucket (or S3-compatible storage)
-- SMTP server for email notifications
+Before you begin, ensure you have the following installed:
 
-## 🔧 Installation
+- **Node.js** v16.x or higher ([Download](https://nodejs.org/))
+- **PostgreSQL** v12.x or higher ([Download](https://www.postgresql.org/download/))
+- **Redis** v6.x or higher ([Download](https://redis.io/download))
+- **npm** or **yarn** package manager
+- **AWS S3** bucket or S3-compatible storage
+- **SMTP** server for email notifications
+- **Docker** (optional, for containerized deployment)
+
+---
+
+## 🚀 Installation
 
 ### 1. Clone the Repository
+
 ```bash
-git clone <repository-url>
-cd e-commerce
+git clone https://github.com/yourusername/waywise-multivendor-backend.git
+cd waywise-multivendor-backend
 ```
 
 ### 2. Install Dependencies
+
 ```bash
 npm install
 ```
 
-### 3. Environment Configuration
+### 3. Environment Setup
 
-Create a `.env` file in the root directory (see `.env.example` for reference):
+Copy the example environment file and configure it:
 
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your configuration (see [Configuration](#-configuration) section).
+
+### 4. Database Setup
+
+```bash
+# Generate Prisma client
+npm run prisma:generate
+
+# Run database migrations
+npm run prisma:migrate
+
+# Seed the database with initial data
+npm run prisma:seed
+```
+
+### 5. Start Redis (if not running)
+
+```bash
+# Using Docker
+docker run -d -p 6379:6379 redis:alpine
+
+# Or using local installation
+redis-server
+```
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+#### Application Configuration
 ```env
-# Application
 NODE_ENV=development
 PORT=4000
 API_VERSION=1.0.0
+PRODUCTION_URL=https://your-domain.com
+```
 
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/ecommerce"
+#### Database Configuration
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/waywise_multivendor"
+```
 
-# JWT Configuration
-JWT_SECRET=your-jwt-secret-here
+#### JWT Configuration
+```env
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_TOKEN_AUDIENCE=localhost:4000
 JWT_TOKEN_ISSUER=localhost:4000
 JWT_ACCESS_TOKEN_TTL=3600
 JWT_REFRESH_TOKEN_TTL=86400
+```
 
-# Google OAuth
+#### Google OAuth Configuration
+```env
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
 
-# Email Configuration
-SMTP_HOST=smtp.mailtrap.io
-SMTP_PORT=2525
-SMTP_USER=your-smtp-user
-SMTP_PASS=your-smtp-password
-EMAIL_FROM=noreply@example.com
+#### Email Configuration
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your-smtp-username
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM_EMAIL=noreply@example.com
 CONTACT_EMAIL=contact@example.com
+```
 
-# OTP Configuration
+#### OTP Configuration
+```env
 OTP_EXPIRY_MINUTES=10
 OTP_LENGTH=6
 OTP_MAX_ATTEMPTS=3
 OTP_RESEND_COOLDOWN_SECONDS=60
+```
 
-# AWS S3 Configuration
+#### AWS S3 Configuration
+```env
 AWS_ENDPOINT=https://s3.amazonaws.com
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_ACCESS_KEY_ID=your-aws-access-key-id
+AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
 AWS_REGION=us-east-1
 S3_BUCKET_NAME=your-bucket-name
+```
 
-# File Upload Configuration
+#### File Upload Configuration
+```env
 MAX_FILE_SIZE=5242880
 ALLOWED_IMAGE_TYPES=jpg,jpeg,png,webp
 MAX_IMAGES_PER_REVIEW=5
+```
 
-# Logging
+#### Logging Configuration
+```env
 LOG_LEVEL=debug
+```
 
-# Cache
+#### Cache Configuration
+```env
 CACHE_TTL=60000
 CACHE_MAX_ITEMS=100
 ```
 
-### 4. Database Setup
+---
+
+## 🏃 Running the Application
+
+### Development Mode
+
 ```bash
-# Generate Prisma client
-npx prisma generate
-
-# Run database migrations
-npx prisma migrate dev
-
-# (Optional) Seed the database with sample data
-npx prisma db seed
+npm run start:dev
 ```
 
-## 🚀 Running the Application
+The API will be available at `http://localhost:4000`
+
+### Production Mode
 
 ```bash
-# Development mode with hot-reload
-npm run start:dev
+# Build the application
+npm run build
 
-# Production mode
+# Start production server
 npm run start:prod
+```
 
-# Debug mode
+### Debug Mode
+
+```bash
 npm run start:debug
 ```
 
-**Access Points:**
-- API Base URL: `http://localhost:4000`
-- Swagger Documentation: `http://localhost:4000/api/docs`
+### Using Docker
 
-## 📡 API Endpoints
+```bash
+# Build and start all services
+docker-compose up -d
 
-### Authentication
-- `POST /v1/auth/register` - Register new user
-- `POST /v1/auth/verify-otp` - Verify email with OTP
-- `POST /v1/auth/resend-otp` - Resend OTP code
-- `POST /v1/auth/sign-in` - Login with email/password
-- `POST /v1/auth/refresh-tokens` - Refresh access token
-- `POST /v1/auth/logout` - Logout user
-- `POST /v1/auth/forgot-password` - Request password reset
-- `POST /v1/auth/reset-password` - Reset password with token
-- `GET /v1/auth/google` - Google OAuth login
-- `GET /v1/auth/google/callback` - Google OAuth callback
+# View logs
+docker-compose logs -f
 
-### Users
-- `GET /v1/user/profile` - Get current user profile
-- `PATCH /v1/user/profile` - Update user profile
-- `GET /v1/user/all` - Get all users (admin only)
-- `GET /v1/user/addresses` - Get user addresses
-- `POST /v1/user/addresses` - Add new address
-- `PATCH /v1/user/addresses/:id` - Update address
-- `DELETE /v1/user/addresses/:id` - Delete address
+# Stop services
+docker-compose down
+```
 
-### Catalog
-- `GET /v1/catalog/products` - List products with filters
-- `GET /v1/catalog/products/:id` - Get product details
-- `POST /v1/catalog/products` - Create product (admin)
-- `PATCH /v1/catalog/products/:id` - Update product (admin)
-- `DELETE /v1/catalog/products/:id` - Delete product (admin)
-- `GET /v1/catalog/categories` - List all categories
-- `GET /v1/catalog/search` - Search products
+### Access Points
 
-### Bundles
-- `GET /v1/bundles` - List all bundles
-- `GET /v1/bundles/:id` - Get bundle details
-- `POST /v1/bundles` - Create bundle (admin)
-- `PATCH /v1/bundles/:id` - Update bundle (admin)
-- `DELETE /v1/bundles/:id` - Delete bundle (admin)
+- **API Base URL**: `http://localhost:4000`
+- **Swagger Documentation**: `http://localhost:4000/api/docs`
+- **Health Check**: `http://localhost:4000/health`
 
-### Inventory
-- `GET /v1/inventory/variants/:id` - Get variant inventory
-- `POST /v1/inventory/adjust` - Adjust inventory (admin)
-- `GET /v1/inventory/movements` - Get inventory movements (admin)
+---
 
-### Orders
-- `POST /v1/orders` - Create new order
-- `GET /v1/orders` - Get user orders
-- `GET /v1/orders/:id` - Get order details
-- `PATCH /v1/orders/:id/status` - Update order status (admin)
-- `GET /v1/orders/:id/history` - Get order status history
+## 📡 API Documentation
 
-### Shipping
-- `GET /v1/shipping/methods` - List shipping methods
-- `POST /v1/shipping/calculate` - Calculate shipping cost
-- `GET /v1/shipping/track/:trackingNumber` - Track shipment
+### Interactive Documentation
 
-### Payments
-- `POST /v1/payments/process` - Process payment
-- `GET /v1/payments/:id` - Get payment details
-- `POST /v1/payments/:id/refund` - Refund payment (admin)
+Visit `http://localhost:4000/api/docs` for interactive Swagger/OpenAPI documentation.
 
-### Reviews
-- `GET /v1/reviews` - List all reviews
-- `GET /v1/reviews/:id` - Get review details
-- `GET /v1/reviews/products/:productId` - Get product reviews
-- `GET /v1/reviews/products/:productId/statistics` - Get review statistics
-- `POST /v1/reviews` - Create review
-- `PATCH /v1/reviews/:id` - Update review
-- `DELETE /v1/reviews/:id` - Delete review
-- `POST /v1/reviews/:id/images` - Upload review images
-- `DELETE /v1/reviews/:reviewId/images/:imageId` - Delete review image
-- `PATCH /v1/reviews/:id/status` - Update review status (admin)
+### API Modules
 
-### Coupons
-- `GET /v1/coupons` - List all coupons
-- `GET /v1/coupons/:code` - Get coupon by code
-- `POST /v1/coupons/validate` - Validate coupon
-- `POST /v1/coupons` - Create coupon (admin)
-- `PATCH /v1/coupons/:id` - Update coupon (admin)
-- `DELETE /v1/coupons/:id` - Delete coupon (admin)
+The API is organized into the following modules:
 
-### Notifications
-- `GET /v1/notifications` - List all notifications
-- `GET /v1/notifications/user/:userId` - Get user notifications
-- `GET /v1/notifications/user/:userId/unread` - Get unread notifications
-- `GET /v1/notifications/user/:userId/unread/count` - Get unread count
-- `PUT /v1/notifications/mark-as-read` - Mark notifications as read
-- `PUT /v1/notifications/user/:userId/mark-all-read` - Mark all as read
-- `DELETE /v1/notifications/:id` - Delete notification
-- `GET /v1/notifications/preferences/user/:userId` - Get user preferences
-- `PUT /v1/notifications/preferences` - Update notification preferences
+#### 🔐 Authentication (`/v1/auth`)
+- User registration with email verification
+- Login with email/password or Google OAuth
+- Token refresh and logout
+- Password reset flow
+- OTP management
 
-### Cart (Admin)
-- `GET /admin/carts` - Get all carts with filters
-- `GET /admin/carts/abandoned` - Get abandoned carts
-- `GET /admin/carts/count` - Get cart count
-- `POST /admin/carts/mark-abandoned` - Mark carts as abandoned
-- `POST /admin/carts/mark-expired` - Mark carts as expired
-- `DELETE /admin/carts/cleanup-expired` - Delete expired carts
-- `GET /admin/carts/reports/statistics` - Cart statistics
-- `GET /admin/carts/reports/abandoned-details` - Abandoned cart details
-- `GET /admin/carts/reports/average-value` - Average cart value
-- `GET /admin/carts/reports/overview` - Comprehensive cart report
+#### 👤 User Management (`/v1/user`)
+- Profile management
+- Address book
+- User preferences
+- Account settings
 
-### Reports
-- `GET /v1/reports/sales` - Get sales reports (admin)
-- `GET /v1/reports/orders` - Get order reports (admin)
-- `GET /v1/reports/products` - Get product reports (admin)
+#### 🏢 Organization Management (`/v1/organization`, `/admin/organization`)
+- Organization CRUD operations
+- Document management
+- Settings configuration
+- User assignments
+- Approval workflows
 
-> **Note:** For complete API documentation with request/response examples, visit `/api/docs` when the application is running.
+#### 🎭 RBAC (`/v1/rbac`, `/admin/rbac`)
+- Role management
+- Permission assignment
+- User role assignment
+- Permission checking
 
-## 📊 Database Schema
+#### 🏷️ Attributes (`/v1/attributes`)
+- Dynamic attribute definitions
+- Organization-specific attributes
+- Attribute validation
 
-The application uses Prisma ORM with PostgreSQL. The database schema includes:
+#### 📦 Catalog (`/v1/catalog`)
+- Product management
+- Category management
+- Product search
+- Variant management
 
-**Authentication & Users:**
-User, Role, Permission, UserRole, RolePermission, Otp, PasswordResetToken, UserAddress
+#### 🎁 Bundles (`/v1/bundles`)
+- Bundle creation
+- Bundle management
+- Pricing configuration
 
-**Catalog:**
-Product, ProductImage, Variant, VariantImage, ProductOption, OptionValue, VariantOptionValue, Category, ProductCategory, ProductAttribute
+#### 📊 Inventory (`/v1/inventory`)
+- Stock management
+- Multi-location inventory
+- Movement tracking
+- Stock adjustments
 
-**Bundles:**
-Bundle, BundleItem
+#### 🛒 Cart (`/v1/cart`, `/admin/carts`)
+- Add/remove items
+- Update quantities
+- Cart status management
+- Abandoned cart recovery
 
-**Inventory:**
-Location, VariantInventory, InventoryMovement
+#### 📋 Orders (`/v1/orders`, `/admin/orders`)
+- Order creation
+- Order management
+- Status updates
+- Order history
 
-**Shopping:**
-Cart (with status: active, converted, abandoned, expired), CartItem, Wishlist, WishlistItem, RecentlyViewed
+#### 🚚 Shipping (`/v1/shipping`)
+- Shipping methods
+- Rate calculation
+- Tracking
+- Fulfillment
 
-**Orders:**
-Order, OrderItem, OrderAddress, OrderStatusHistory
+#### 💳 Payments (`/v1/payments`)
+- Payment processing
+- Transaction logging
+- Refund management
 
-**Shipping:**
-ShippingMethod, Shipment, FulfillmentItem
+#### ⭐ Reviews (`/v1/reviews`)
+- Review submission
+- Image uploads
+- Moderation
+- Statistics
 
-**Payments:**
-Payment, TransactionLog, Refund, RefundItem
+#### 🎟️ Coupons (`/v1/coupons`)
+- Coupon management
+- Validation
+- Redemption tracking
 
-**Returns:**
-ReturnRequest, ReturnItem
+#### 🔔 Notifications (`/v1/notifications`)
+- Notification management
+- Preferences
+- Mark as read
+- Notification history
 
-**Coupons:**
-Coupon, CouponProduct, CouponCategory, CouponUser, CouponRedemption
+#### 📊 Reports (`/v1/reports`)
+- Sales reports
+- Analytics
+- Performance metrics
 
-**Reviews:**
-Review, ReviewImage
+#### 📝 Blog (`/v1/blog`)
+- Blog post management
+- Publishing workflow
 
-**Notifications:**
-Notification, NotificationTemplate, NotificationPreference
+#### 🎨 CMS (`/v1/cms`)
+- Homepage management
+- Content sections
 
-View the complete schema in `prisma/schema.prisma`.
+#### 💰 Vendor Financials (`/vendor/balance`, `/vendor/payouts`)
+- Balance tracking
+- Transaction history
+- Payout requests
+- Payout history
 
-## 🔐 Security
+### Response Format
 
-- Passwords are hashed using bcrypt
-- JWT tokens with configurable expiration
-- OTP verification with rate limiting and cooldown
-- Role-based access control (RBAC)
-- Permission-based authorization
-- Input validation on all endpoints
-- SQL injection protection via Prisma ORM
-- CORS configuration
-- Request rate limiting (required for production)
+All API responses follow a standardized format:
 
-## 🌍 Environment Variables
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Operation successful",
+  "data": { },
+  "meta": {
+    "timestamp": "2024-01-01T00:00:00.000Z",
+    "requestId": "uuid-here"
+  },
+  "links": {
+    "self": "/v1/resource",
+    "next": "/v1/resource?page=2"
+  }
+}
+```
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment mode | `development` |
-| `PORT` | Application port | `4000` |
-| `DATABASE_URL` | PostgreSQL connection string | - |
-| `JWT_SECRET` | Secret key for JWT signing | - |
-| `JWT_ACCESS_TOKEN_TTL` | Access token expiry (seconds) | `3600` |
-| `JWT_REFRESH_TOKEN_TTL` | Refresh token expiry (seconds) | `86400` |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | - |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | - |
-| `SMTP_HOST` | SMTP server host | - |
-| `SMTP_PORT` | SMTP server port | `2525` |
-| `SMTP_USER` | SMTP username | - |
-| `SMTP_PASS` | SMTP password | - |
-| `OTP_EXPIRY_MINUTES` | OTP expiration time | `10` |
-| `OTP_LENGTH` | OTP code length | `6` |
-| `OTP_MAX_ATTEMPTS` | Maximum OTP attempts | `3` |
-| `AWS_ACCESS_KEY_ID` | AWS access key | - |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key | - |
-| `AWS_REGION` | AWS region | `us-east-1` |
-| `S3_BUCKET_NAME` | S3 bucket name | - |
-| `MAX_FILE_SIZE` | Max file upload size (bytes) | `5242880` |
-| `MAX_IMAGES_PER_REVIEW` | Max images per review | `5` |
-| `LOG_LEVEL` | Logging level | `debug` |
+---
 
-## 📚 Documentation
+## 🗄️ Database Schema
 
-- **API Documentation**: Available at `/api/docs` (Swagger UI)
-- **Database Schema**: See `prisma/schema.prisma`
-- **Environment Setup**: See `.env.example`
+### Key Models
+
+#### User & Authentication
+- User, Role, Permission, UserRole, RolePermission
+- Otp, PasswordResetToken
+
+#### Organization System
+- Organization, OrganizationType, OrganizationUser
+- OrganizationSettings, OrganizationDocument
+- AttributeDefinition, OrganizationAttribute
+
+#### Vendor Financials
+- VendorBalance, VendorBalanceTransaction
+- VendorPayout, VendorPayoutItem
+
+#### Product Catalog
+- Product, ProductImage, ProductCategory
+- Variant, VariantImage, VariantOptionValue
+- ProductOption, OptionValue, Category
+
+#### Inventory
+- Location, VariantInventory, InventoryMovement
+
+#### Shopping
+- Cart, CartItem, Wishlist, WishlistItem
+- RecentlyViewed
+
+#### Orders & Fulfillment
+- Order, OrderItem, OrderAddress, OrderStatusHistory
+- Shipment, FulfillmentItem, ShippingMethod
+
+#### Payments
+- Payment, TransactionLog, Refund, RefundItem
+- ReturnRequest, ReturnItem
+
+#### Marketing
+- Coupon, CouponRedemption, CouponProduct
+- Review, ReviewImage
+
+#### Notifications
+- Notification, NotificationTemplate, NotificationPreference
+
+#### Content
+- BlogPost, HomepageSection
+
+### Database Diagram
+
+View the complete schema in `prisma/schema.prisma`
+
+---
+
+## 🔒 Security
+
+### Implemented Security Measures
+
+- **Password Hashing**: Bcrypt with salt rounds
+- **JWT Tokens**: Secure token generation with expiration
+- **OTP Rate Limiting**: Prevent brute force attacks
+- **Input Validation**: class-validator on all DTOs
+- **SQL Injection Protection**: Prisma ORM parameterized queries
+- **XSS Protection**: Input sanitization
+- **CORS**: Configurable cross-origin policies
+- **Helmet**: Security headers
+- **Rate Limiting**: Request throttling (recommended for production)
+- **Environment Variables**: Sensitive data in .env
+- **Role-Based Access**: Fine-grained permission system
+
+### Security Best Practices
+
+1. **Change Default Secrets**: Update JWT_SECRET in production
+2. **Use HTTPS**: Always use SSL/TLS in production
+3. **Enable Rate Limiting**: Protect against DDoS
+4. **Regular Updates**: Keep dependencies up to date
+5. **Database Backups**: Regular automated backups
+6. **Monitoring**: Implement logging and alerting
+7. **Audit Logs**: Track sensitive operations
+
+---
+
+## 🧪 Testing
+
+### Run Tests
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+
+# Watch mode
+npm run test:watch
+```
+
+### Test Structure
+
+```
+test/
+├── unit/
+│   ├── auth/
+│   ├── catalog/
+│   └── orders/
+└── e2e/
+    ├── auth.e2e-spec.ts
+    ├── catalog.e2e-spec.ts
+    └── orders.e2e-spec.ts
+```
+
+---
+
+## 🚀 Deployment
+
+### Docker Deployment
+
+```bash
+# Build image
+docker build -t waywise-backend .
+
+# Run container
+docker run -p 4000:4000 --env-file .env waywise-backend
+```
+
+### Docker Compose
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Manual Deployment
+
+1. Build the application:
+```bash
+npm run build
+```
+
+2. Set environment variables
+
+3. Run migrations:
+```bash
+npm run prisma:migrate:prod
+```
+
+4. Start the application:
+```bash
+npm run start:prod
+```
+
+### Environment-Specific Considerations
+
+#### Production Checklist
+- [ ] Set NODE_ENV=production
+- [ ] Use strong JWT_SECRET
+- [ ] Configure production database
+- [ ] Set up Redis for caching
+- [ ] Enable HTTPS
+- [ ] Configure CORS properly
+- [ ] Set up monitoring and logging
+- [ ] Configure backup strategy
+- [ ] Enable rate limiting
+- [ ] Set up CDN for static assets
+
+---
+
+## 📊 Performance Optimization
+
+- **Redis Caching**: Frequently accessed data
+- **Database Indexing**: Optimized queries
+- **Connection Pooling**: Efficient database connections
+- **Lazy Loading**: Load data on demand
+- **Pagination**: Limit result sets
+- **Compression**: Gzip response compression
+- **CDN Integration**: Static asset delivery
+
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
+Contributions are welcome! Please follow these guidelines:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -371,25 +869,75 @@ Contributions are welcome! Please follow these steps:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+### Coding Standards
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👥 Support
-
-For questions, issues, or support:
-- Open an issue on GitHub
-- Check the API documentation at `/api/docs`
-- Review the Prisma schema documentation
-
-## 🔗 Resources
-
-- [NestJS Documentation](https://docs.nestjs.com)
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [Swagger/OpenAPI Specification](https://swagger.io/specification/)
-- [Socket.IO Documentation](https://socket.io/docs/)
+- Follow TypeScript best practices
+- Use ESLint and Prettier configurations
+- Write unit tests for new features
+- Update documentation as needed
+- Follow conventional commit messages
 
 ---
 
-**Built with ❤️ using NestJS, Prisma, and PostgreSQL**
+## 📝 Scripts Reference
+
+```bash
+# Development
+npm run start:dev          # Start with hot-reload
+npm run start:debug        # Start in debug mode
+
+# Production
+npm run build              # Build for production
+npm run start:prod         # Start production server
+
+# Database
+npm run prisma:generate    # Generate Prisma client
+npm run prisma:migrate     # Run migrations
+npm run prisma:studio      # Open Prisma Studio
+npm run prisma:seed        # Seed database
+npm run db:reset           # Reset and seed database
+
+# Code Quality
+npm run lint               # Run ESLint
+npm run format             # Format with Prettier
+
+# Testing
+npm run test               # Run unit tests
+npm run test:e2e           # Run E2E tests
+npm run test:cov           # Generate coverage report
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the **UNLICENSED** License - it is proprietary software.
+
+---
+
+## 👥 Support & Contact
+
+For questions, issues, or support:
+
+- **Email**: contact@waywise.com
+- **Documentation**: [API Docs](http://localhost:4000/api/docs)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/waywise-multivendor-backend/issues)
+
+---
+
+## 🙏 Acknowledgments
+
+Built with:
+- [NestJS](https://nestjs.com/) - The progressive Node.js framework
+- [Prisma](https://www.prisma.io/) - Next-generation ORM
+- [PostgreSQL](https://www.postgresql.org/) - The world's most advanced open source database
+
+---
+
+<div align="center">
+
+**Built with ❤️ by the WayWise Team**
+
+⭐ Star us on GitHub if you find this project useful!
+
+</div>
